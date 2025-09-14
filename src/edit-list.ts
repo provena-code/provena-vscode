@@ -186,6 +186,10 @@ export class EditList {
     private shiftEdits(start: vscode.Position, delta: number) {
     }
 
+    toPlainText(): string {
+        return this.edits.map(edit => edit.text).join('');
+    }
+
     toString(): string {
         return this.edits.map(edit => {
             return `<[${edit.metadata.author}]"${edit.text}/>`;
