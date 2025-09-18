@@ -41,6 +41,8 @@ class Span {
 export class EditList {
     private edits = [] as EditRange[];
 
+    trace: (...args: any[]) => void = (..._args: any[]) => { };
+
     // Use binary search to find the edit at a given position
     findEditAt(position: number): EditRange | undefined {
         let low = 0;
@@ -114,12 +116,12 @@ export class EditList {
     }
 
     addEdit(changeEvent: IChangeEvent, metadata: Metadata) {
-        console.log('Current edits:', this.toStringWithRanges());
+        this.trace('Current edits:', this.toStringWithRanges());
 
         // TODO: What do we do with rangeOffset?
         const { text, rangeLength, rangeOffset } = changeEvent;
         const span = new Span(rangeOffset, rangeLength + rangeOffset);
-        console.log(`Adding edit: "${text}" at ${span}`);
+        this.trace(`Adding edit: "${text}" at ${span}`);
         const overlappingEdits = this.findEditsInRange(span);
         const containedEdits = [];
         for (const edit of overlappingEdits) {
@@ -170,9 +172,9 @@ export class EditList {
         // might be the only clue about what line things end up on...
         this.shiftEdits(span.end, span, text);
 
-        console.log('After splits and shifts:', this.toStringWithRanges());
-        console.log('Contained edits:', containedEdits.map(e => e.text + `[${e.range}]`).join(', '));
-        console.log(`Adding edit: "${text}" at ${span}`);
+        this.trace('After splits and shifts:', this.toStringWithRanges());
+        this.trace('Contained edits:', containedEdits.map(e => e.text + `[${e.range}]`).join(', '));
+        this.trace(`Adding edit: "${text}" at ${span}`);
 
         let edit: EditRange | undefined = undefined;
         if (text.length !== 0) {
@@ -182,11 +184,11 @@ export class EditList {
             const editRange = new Span(span.start, span.start + text.length);
             edit = { range: editRange, text, metadata };
             const index = this.findLastEditBefore(span.start) + 1;
-            console.log('Inserting at', index);
+            this.trace('Inserting at', index);
             this.edits.splice(index, 0, edit);
         }
 
-        console.log('Removing edits:', containedEdits.map(e => e.text + `[${e.range}]`).join(', '));
+        this.trace('Removing edits:', containedEdits.map(e => e.text + `[${e.range}]`).join(', '));
         // Remove contained edits, which are now superseded by this edit
         for (const containedEdit of containedEdits) {
             const containedIndex = this.edits.indexOf(containedEdit);
@@ -203,18 +205,18 @@ export class EditList {
         // TODO: First check if anything was added/deleted
         this.defragment();
 
-        console.log('Final edits:', this.toStringWithRanges());
+        this.trace('Final edits:', this.toStringWithRanges());
     }
 
     private defragment() {
         for (let i = 0; i < this.edits.length - 1; i++) {
             const current = this.edits[i];
             const next = this.edits[i + 1];
-            console.log(`Checking ${current.range} and ${next.range}`);
+            this.trace(`Checking ${current.range} and ${next.range}`);
             if (current.range.end === next.range.start &&
                 current.metadata.author === next.metadata.author
             ) {
-                console.log('Merging edits');
+                this.trace('Merging edits');
                 // Merge next into current
                 const mergedEdit: EditRange = {
                     range: new Span(current.range.start, next.range.end),

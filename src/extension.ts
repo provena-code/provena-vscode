@@ -10,9 +10,33 @@ export function activate(context: vscode.ExtensionContext) {
 
 	const editList = new EditList();
 	const recorderMap = new EventRecorderMap();
+	const disposables = [];
+
+	const panel = vscode.window.createWebviewPanel(
+		'myWebview', // internal identifier
+		'My Webview', // title shown to user
+		vscode.ViewColumn.Two, // editor column to show
+		{
+			enableScripts: true, // allow JS in the webview
+		}
+	);
+	disposables.push(panel);
 
 	console.log('start!');
-	const disposable = vscode.workspace.onDidChangeTextDocument(event => {
+
+
+	disposables.push(vscode.workspace.onDidOpenTextDocument(document => {
+		console.log(`Document opened: ${document.uri.toString()}`);
+		console.log(`Text: ${document.getText().substring(0, 100)}`);
+		editList.setInitialText(document.getText(), {
+			author: 'init',
+			startTime: new Date().getTime(),
+			endTime: new Date().getTime(),
+		});
+		panel.webview.html = `<html><body><pre>${editList.toStringWithRanges()}</pre></body></html>`;
+	}));
+
+	disposables.push(vscode.workspace.onDidChangeTextDocument(event => {
 		recorderMap.getRecorder(event.document.uri, false).record(event);
 		console.log(`Reason: ${event.reason}, count: ${event.contentChanges.length}`);
 		let author = 'other';
@@ -43,10 +67,11 @@ export function activate(context: vscode.ExtensionContext) {
 			editList.addEdit(change, metadata);
 			// console.log(`Document changed: ${change.text}, range: ${rangeToString(change.range)}, rangeLength: ${change.rangeLength}`);
 		});
+		panel.webview.html = `<html><body><pre>${editList.toStringWithRanges()}</pre></body></html>`;
 		console.log(`Current edits: ${editList.toString()}`);
-	});
+	}));
 
-	context.subscriptions.push(disposable);
+	context.subscriptions.push(...disposables);
 }
 
 // This method is called when your extension is deactivated
