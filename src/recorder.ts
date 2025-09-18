@@ -2,6 +2,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import { EventLog } from './recorder-util';
 
 interface OutputStream {
     write(data: string): void;
@@ -13,7 +14,7 @@ export class FileOutputStream implements OutputStream {
     readonly isNewFile: boolean;
 
     constructor(
-        private readonly fileUri: vscode.Uri, 
+        private readonly fileUri: vscode.Uri,
         overwrite: boolean
     ) {
         this.isNewFile = overwrite || !fs.existsSync(fileUri.fsPath);
@@ -58,13 +59,6 @@ export class EventRecorderMap {
     }
 }
 
-export type EventLog = {
-    contentChanges: readonly vscode.TextDocumentContentChangeEvent[];
-    reason: vscode.TextDocumentChangeReason | undefined;
-    documentText: string;
-    documentUri: vscode.Uri;
-    time: number;
-};
 
 export class EventRecorder {
     private hasInitialized = false;
@@ -80,9 +74,9 @@ export class EventRecorder {
     getDocumentData(document: vscode.TextDocument) {
         return {
             documentText: document.getText(),
-            documentUri: document.uri,
+            documentUri: document.uri.toString(),
             time: new Date().getTime(),
-        }
+        };
     }
 
     writeData(data: EventLog) {
@@ -105,7 +99,7 @@ export class EventRecorder {
             this.init(event.document);
         }
         // flatten the event to json
-        const eventData = { 
+        const eventData = {
             ...event,
             document: undefined,
             ...this.getDocumentData(event.document),

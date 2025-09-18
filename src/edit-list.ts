@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { IChangeEvent } from './recorder-util';
 
 export type Metadata = {
     author: string;
@@ -42,7 +43,7 @@ export class EditList {
         if (firstAfter === -1) firstAfter = this.edits.length;
         for (let i = lastBefore + 1; i < firstAfter; i++) {
             // Ignore edits that abut but do not overlap
-            if (this.edits[i].range.start.isAfterOrEqual(range.end) || 
+            if (this.edits[i].range.start.isAfterOrEqual(range.end) ||
                 this.edits[i].range.end.isBeforeOrEqual(range.start)) {
                 continue;
             }
@@ -85,7 +86,17 @@ export class EditList {
         return result;
     }
 
-    addEdit(changeEvent: vscode.TextDocumentContentChangeEvent, metadata: Metadata) {
+    setInitialText(text: string, metadata: Metadata) {
+        if (this.edits.length > 0) {
+            throw new Error('Initial text can only be set on an empty EditList');
+        }
+        const lines = text.split('\n');
+        const endPosition = new vscode.Position(lines.length - 1, lines[lines.length - 1].length);
+        const range = new vscode.Range(new vscode.Position(0, 0), endPosition);
+        this.edits.push({ range, text, metadata });
+    }
+
+    addEdit(changeEvent: IChangeEvent, metadata: Metadata) {
         const { range, text, rangeLength } = changeEvent;
         const overlappingEdits = this.findEditsInRange(range);
         const containedEdits = [];
@@ -143,7 +154,7 @@ export class EditList {
             const current = this.edits[i];
             const next = this.edits[i + 1];
             console.log(`Checking ${rangeToString(current.range)} and ${rangeToString(next.range)}`);
-            if (current.range.end.isEqual(next.range.start) && 
+            if (current.range.end.isEqual(next.range.start) &&
                 current.metadata.author === next.metadata.author
             ) {
                 console.log('Merging edits');
