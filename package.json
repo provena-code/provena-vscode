@@ -30,8 +30,7 @@
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "lint": "eslint src",
-    "test": "vitest",
-    "test:ext": "vscode-test"
+    "test": "vscode-test"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.9",
@@ -44,7 +43,6 @@
     "eslint": "^9.13.0",
     "ts-loader": "^9.5.1",
     "typescript": "^5.6.3",
-    "vitest": "^3.2.4",
     "webpack": "^5.95.0",
     "webpack-cli": "^5.1.4"
   }

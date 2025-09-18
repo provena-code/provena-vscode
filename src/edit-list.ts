@@ -42,7 +42,7 @@ export class EditList {
         if (firstAfter === -1) firstAfter = this.edits.length;
         for (let i = lastBefore + 1; i < firstAfter; i++) {
             // Ignore edits that abut but do not overlap
-            if (this.edits[i].range.start.isAfterOrEqual(range.end) || 
+            if (this.edits[i].range.start.isAfterOrEqual(range.end) ||
                 this.edits[i].range.end.isBeforeOrEqual(range.start)) {
                 continue;
             }
@@ -143,7 +143,7 @@ export class EditList {
             const current = this.edits[i];
             const next = this.edits[i + 1];
             console.log(`Checking ${rangeToString(current.range)} and ${rangeToString(next.range)}`);
-            if (current.range.end.isEqual(next.range.start) && 
+            if (current.range.end.isEqual(next.range.start) &&
                 current.metadata.author === next.metadata.author
             ) {
                 console.log('Merging edits');
