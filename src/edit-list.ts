@@ -1,4 +1,3 @@
-import * as vscode from 'vscode';
 import { IChangeEvent } from './recorder-util';
 
 export type Metadata = {
@@ -8,9 +7,29 @@ export type Metadata = {
 }
 
 export type EditRange = {
-    range: vscode.Range;
+    range: Span;
     text: string;
     metadata: Metadata;
+}
+
+class Span {
+    constructor(public readonly start: number, public readonly end: number) {
+        if (start > end) {
+            throw new Error(`Invalid span: start ${start} > end ${end}`);
+        }
+    }
+
+    contains(position: number) {
+        return position >= this.start && position < this.end;
+    }
+
+    shift(delta: number): Span {
+        return new Span(this.start + delta, this.end + delta);
+    }
+
+    toString() {
+        return `[${this.start}, ${this.end}]`;
+    }
 }
 
 /**
@@ -23,28 +42,28 @@ export class EditList {
     private edits = [] as EditRange[];
 
     // Use binary search to find the edit at a given position
-    findEditAt(position: vscode.Position): EditRange | undefined {
+    findEditAt(position: number): EditRange | undefined {
         let low = 0;
         let high = this.edits.length - 1;
         while (low <= high) {
             const mid = Math.floor((low + high) / 2);
             const edit = this.edits[mid];
             if (edit.range.contains(position)) return edit;
-            if (edit.range.end.isBefore(position)) low = mid + 1;
+            if (edit.range.end < position) low = mid + 1;
             else high = mid - 1;
         }
         return undefined;
     }
 
-    findEditsInRange(range: vscode.Range): EditRange[] {
+    findEditsInRange(range: Span): EditRange[] {
         const result: EditRange[] = [];
         let lastBefore = this.findLastEditBefore(range.start);
         let firstAfter = this.findFirstEditAfter(range.end);
         if (firstAfter === -1) firstAfter = this.edits.length;
         for (let i = lastBefore + 1; i < firstAfter; i++) {
             // Ignore edits that abut but do not overlap
-            if (this.edits[i].range.start.isAfterOrEqual(range.end) ||
-                this.edits[i].range.end.isBeforeOrEqual(range.start)) {
+            if (this.edits[i].range.start >= range.end ||
+                this.edits[i].range.end <= range.start) {
                 continue;
             }
             result.push(this.edits[i]);
@@ -52,14 +71,14 @@ export class EditList {
         return result;
     }
 
-    private findLastEditBefore(position: vscode.Position): number {
+    private findLastEditBefore(position: number): number {
         let low = 0;
         let high = this.edits.length - 1;
         let result = -1;
         while (low <= high) {
             const mid = Math.floor((low + high) / 2);
             const edit = this.edits[mid];
-            if (edit.range.end.isBeforeOrEqual(position)) {
+            if (edit.range.end <= position) {
                 result = mid;
                 low = mid + 1;
             } else {
@@ -69,14 +88,14 @@ export class EditList {
         return result;
     }
 
-    private findFirstEditAfter(position: vscode.Position): number {
+    private findFirstEditAfter(position: number): number {
         let low = 0;
         let high = this.edits.length - 1;
         let result = this.edits.length;
         while (low <= high) {
             const mid = Math.floor((low + high) / 2);
             const edit = this.edits[mid];
-            if (edit.range.start.isAfterOrEqual(position)) {
+            if (edit.range.start >= position) {
                 result = mid;
                 high = mid - 1;
             } else {
@@ -90,9 +109,7 @@ export class EditList {
         if (this.edits.length > 0) {
             throw new Error('Initial text can only be set on an empty EditList');
         }
-        const lines = text.split('\n');
-        const endPosition = new vscode.Position(lines.length - 1, lines[lines.length - 1].length);
-        const range = new vscode.Range(new vscode.Position(0, 0), endPosition);
+        const range = new Span(0, text.length);
         this.edits.push({ range, text, metadata });
     }
 
@@ -100,55 +117,56 @@ export class EditList {
         console.log('Current edits:', this.toStringWithRanges());
 
         // TODO: What do we do with rangeOffset?
-        const { range, text, rangeLength, rangeOffset } = changeEvent;
-        console.log(`Adding edit: "${text}" at ${rangeToString(range)}, rangeLength: ${rangeLength}, rangeOffset: ${rangeOffset}`);
-        const overlappingEdits = this.findEditsInRange(range);
+        const { text, rangeLength, rangeOffset } = changeEvent;
+        const span = new Span(rangeOffset, rangeLength + rangeOffset);
+        console.log(`Adding edit: "${text}" at ${span}, rangeLength: ${rangeLength}, rangeOffset: ${rangeOffset}`);
+        const overlappingEdits = this.findEditsInRange(span);
         const containedEdits = [];
         for (const edit of overlappingEdits) {
-            const containsStart = edit.range.contains(range.start);
-            const containsEnd = edit.range.contains(range.end);
+            const containsStart = edit.range.contains(span.start);
+            const containsEnd = edit.range.contains(span.end);
             if (containsStart && containsEnd) {
                 // If the edit completely contains the change range, split it into three parts
                 // Left part (before), middle part (to be replaced), right part (after)
-                if (range.start.isEqual(range.end)) {
+                if (span.start === span.end) {
                     // Only need one split, and nothing is contained, since this edit
                     // doesn't replace anything. It just splits existing text in two.
-                    this.splitEdit(edit, range.start);
+                    this.splitEdit(edit, span.start);
                 } else {
-                    const { rightEdit: rest } = this.splitEdit(edit, range.start);
-                    const { leftEdit: middleEdit } = this.splitEdit(rest, range.end);
+                    const { rightEdit: rest } = this.splitEdit(edit, span.start);
+                    const { leftEdit: middleEdit } = this.splitEdit(rest, span.end);
                     containedEdits.push(middleEdit);
                 }
             } else if (containsStart) {
-                const { rightEdit } = this.splitEdit(edit, range.start);
+                const { rightEdit } = this.splitEdit(edit, span.start);
                 containedEdits.push(rightEdit);
             } else if (containsEnd) {
-                const { leftEdit } = this.splitEdit(edit, range.end);
+                const { leftEdit } = this.splitEdit(edit, span.end);
                 containedEdits.push(leftEdit);
             } else {
-                console.warn('Overlapping edits should be split', edit, range);
+                console.warn('Overlapping edits should be split', edit, span);
             }
         }
         // We don't have to worry about shifting edits that overlap with
         // the change because they will be removed
         // TODO: This definitely doesn't work for multi-line edits, where the text itself
         // might be the only clue about what line things end up on...
-        this.shiftEdits(range.end, range, text);
+        this.shiftEdits(span.end, span, text);
 
         console.log('After splits and shifts:', this.toStringWithRanges());
-        console.log('Contained edits:', containedEdits.map(e => e.text + `[${rangeToString(e.range)}]`).join(', '));
-        console.log(`Adding edit: "${text}" at ${rangeToString(range)}`);
+        console.log('Contained edits:', containedEdits.map(e => e.text + `[${e.range}]`).join(', '));
+        console.log(`Adding edit: "${text}" at ${span}`);
 
         // TODO: If this is right next to an edit by the same author, edit instead
         // of adding a new one
         // TODO: Same problem here with multi-line edits
-        const editRange = new vscode.Range(range.start, range.start.translate(0, text.length));
+        const editRange = new Span(span.start, span.start + text.length);
         const edit: EditRange = { range: editRange, text, metadata };
-        const index = this.findLastEditBefore(range.start) + 1;
+        const index = this.findLastEditBefore(span.start) + 1;
         console.log('Inserting at', index);
         this.edits.splice(index, 0, edit);
 
-        console.log('Removing edits:', containedEdits.map(e => e.text + `[${rangeToString(e.range)}]`).join(', '));
+        console.log('Removing edits:', containedEdits.map(e => e.text + `[${e.range}]`).join(', '));
         // Remove contained edits, which are now superseded by this edit
         for (const containedEdit of containedEdits) {
             const containedIndex = this.edits.indexOf(containedEdit);
@@ -169,14 +187,14 @@ export class EditList {
         for (let i = 0; i < this.edits.length - 1; i++) {
             const current = this.edits[i];
             const next = this.edits[i + 1];
-            console.log(`Checking ${rangeToString(current.range)} and ${rangeToString(next.range)}`);
-            if (current.range.end.isEqual(next.range.start) &&
+            console.log(`Checking ${current.range} and ${next.range}`);
+            if (current.range.end === next.range.start &&
                 current.metadata.author === next.metadata.author
             ) {
                 console.log('Merging edits');
                 // Merge next into current
                 const mergedEdit: EditRange = {
-                    range: new vscode.Range(current.range.start, next.range.end),
+                    range: new Span(current.range.start, next.range.end),
                     text: current.text + next.text,
                     metadata: {
                         author: current.metadata.author,
@@ -190,36 +208,36 @@ export class EditList {
         }
     }
 
-    private getSubstringFromEdit(edit: EditRange, range: vscode.Range): string {
-        if (!edit.range.contains(range)) {
-            throw new Error(`Range ${rangeToString(range)} is not contained in edit range ${rangeToString(edit.range)}`);
-        }
-        if (edit.range.isEmpty) {
-            return '';
-        }
-        if (range.end.line === edit.range.start.line) {
-            return edit.text.substring(range.start.character - edit.range.start.character, range.end.character - edit.range.start.character);
-        }
-        const lines = edit.text.split('\n');
-        const rangeLines = lines.slice(range.start.line - edit.range.start.line, range.end.line - edit.range.start.line + 1);
-        rangeLines[rangeLines.length - 1] = rangeLines[rangeLines.length - 1].substring(0, range.end.character);
-        rangeLines[0] = rangeLines[0].substring(range.start.character);
-        return rangeLines.join('\n');
-    }
+    // private getSubstringFromEdit(edit: EditRange, range: vscode.Range): string {
+    //     if (!edit.range.contains(range)) {
+    //         throw new Error(`Range ${rangeToString(range)} is not contained in edit range ${rangeToString(edit.range)}`);
+    //     }
+    //     if (edit.range.isEmpty) {
+    //         return '';
+    //     }
+    //     if (range.end.line === edit.range.start.line) {
+    //         return edit.text.substring(range.start.character - edit.range.start.character, range.end.character - edit.range.start.character);
+    //     }
+    //     const lines = edit.text.split('\n');
+    //     const rangeLines = lines.slice(range.start.line - edit.range.start.line, range.end.line - edit.range.start.line + 1);
+    //     rangeLines[rangeLines.length - 1] = rangeLines[rangeLines.length - 1].substring(0, range.end.character);
+    //     rangeLines[0] = rangeLines[0].substring(range.start.character);
+    //     return rangeLines.join('\n');
+    // }
 
-    private splitEdit(edit: EditRange, splitPosition: vscode.Position) {
-        if (splitPosition.isBeforeOrEqual(edit.range.start) || splitPosition.isAfterOrEqual(edit.range.end)) {
-            throw new Error(`Invalid split position ${rangeToString(edit.range)} at ${positionToString(splitPosition)}`);
+    private splitEdit(edit: EditRange, splitPosition: number) {
+        if (splitPosition <= edit.range.start || splitPosition >= edit.range.end) {
+            throw new Error(`Invalid split position ${edit.range} at ${splitPosition}`);
         }
 
         const leftEdit: EditRange = {
-            range: new vscode.Range(edit.range.start, splitPosition),
-            text: this.getSubstringFromEdit(edit, new vscode.Range(edit.range.start, splitPosition)),
+            range: new Span(edit.range.start, splitPosition),
+            text: edit.text.substring(0, splitPosition - edit.range.start),
             metadata: edit.metadata
         };
         const rightEdit: EditRange = {
-            range: new vscode.Range(splitPosition, edit.range.end),
-            text: this.getSubstringFromEdit(edit, new vscode.Range(splitPosition, edit.range.end)),
+            range: new Span(splitPosition, edit.range.end),
+            text: edit.text.substring(splitPosition - edit.range.start),
             metadata: edit.metadata
         };
         const index = this.edits.indexOf(edit);
@@ -227,17 +245,16 @@ export class EditList {
         return { leftEdit, rightEdit };
     }
 
-    private shiftEdits(start: vscode.Position, replacedRange: vscode.Range, text: string) {
-        const lines = text.split('\n');
-        const lineDelta = lines.length - (replacedRange.end.line - replacedRange.start.line + 1);
-        const lastLine = lines[lines.length - 1];
-        const lastLineCharDelta = lastLine.length - (replacedRange.end.character - (lineDelta === 0 ? replacedRange.start.character : 0));
+    private shiftEdits(start: number, replacedRange: Span, text: string) {
+        const delta = text.length - (replacedRange.end - replacedRange.start);
+        if (delta === 0) {
+            return;
+        }
         for (const edit of this.edits) {
-            if (edit.range.end.isBeforeOrEqual(start)) {
+            if (edit.range.end <= start) {
                 continue;
             }
-            // if
-            // edit.range = new vscode.Range(newStart, newEnd);
+            edit.range = edit.range.shift(delta);
         }
     }
 
@@ -247,7 +264,7 @@ export class EditList {
 
     toStringWithRanges(): string {
         return this.edits.map(edit => {
-            return `<[${edit.metadata.author}]${edit.text}${rangeToString(edit.range)}/>`;
+            return `<[${edit.metadata.author}]${edit.text}${edit.range}/>`;
         }).join('');
     }
 
@@ -256,12 +273,4 @@ export class EditList {
             return `<[${edit.metadata.author}]${edit.text}/>`;
         }).join('');
     }
-}
-
-export function positionToString(position: vscode.Position): string {
-    return `(${position.line},${position.character})`;
-}
-
-export function rangeToString(range: vscode.Range): string {
-    return `[${positionToString(range.start)} - ${positionToString(range.end)}]`;
 }

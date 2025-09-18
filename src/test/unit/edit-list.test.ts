@@ -48,6 +48,7 @@ function testFile(name: string) {
           new Position(realRange[1].line, realRange[1].character)
         ),
         rangeLength: change.rangeLength,
+        rangeOffset: change.rangeOffset,
         text: change.text,
       } as IChangeEvent;
       editList.addEdit(realChangeEvent, {
