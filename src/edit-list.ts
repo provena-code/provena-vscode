@@ -20,7 +20,7 @@ class Span {
     }
 
     contains(position: number) {
-        return position >= this.start && position < this.end;
+        return position >= this.start && position <= this.end;
     }
 
     shift(delta: number): Span {
@@ -119,20 +119,37 @@ export class EditList {
         // TODO: What do we do with rangeOffset?
         const { text, rangeLength, rangeOffset } = changeEvent;
         const span = new Span(rangeOffset, rangeLength + rangeOffset);
-        console.log(`Adding edit: "${text}" at ${span}, rangeLength: ${rangeLength}, rangeOffset: ${rangeOffset}`);
+        console.log(`Adding edit: "${text}" at ${span}`);
         const overlappingEdits = this.findEditsInRange(span);
         const containedEdits = [];
         for (const edit of overlappingEdits) {
             const containsStart = edit.range.contains(span.start);
             const containsEnd = edit.range.contains(span.end);
+            // If edits abut but don't overlap meaningfully, skip them
+            if (edit.range.end === span.start || edit.range.start === span.end) {
+                continue;
+            }
             if (containsStart && containsEnd) {
-                // If the edit completely contains the change range, split it into three parts
-                // Left part (before), middle part (to be replaced), right part (after)
                 if (span.start === span.end) {
+                    // If it's a 0-length edit (insertion)
                     // Only need one split, and nothing is contained, since this edit
                     // doesn't replace anything. It just splits existing text in two.
                     this.splitEdit(edit, span.start);
+                } else if (span.start === edit.range.start && span.end === edit.range.end) {
+                    // If the edit exactly matches the change range, just remove it
+                    // No need to split it up
+                    containedEdits.push(edit);
+                } else if (span.start === edit.range.start) {
+                    // If the edit starts at the same place as the change range, split off the end
+                    const { leftEdit } = this.splitEdit(edit, span.end);
+                    containedEdits.push(leftEdit);
+                } else if (span.end === edit.range.end) {
+                    // If the edit ends at the same place as the change range, split off the start
+                    const { rightEdit } = this.splitEdit(edit, span.start);
+                    containedEdits.push(rightEdit);
                 } else {
+                    // If the edit completely contains the change range, split it into three parts
+                    // Left part (before), middle part (to be replaced), right part (after)
                     const { rightEdit: rest } = this.splitEdit(edit, span.start);
                     const { leftEdit: middleEdit } = this.splitEdit(rest, span.end);
                     containedEdits.push(middleEdit);
@@ -157,14 +174,17 @@ export class EditList {
         console.log('Contained edits:', containedEdits.map(e => e.text + `[${e.range}]`).join(', '));
         console.log(`Adding edit: "${text}" at ${span}`);
 
-        // TODO: If this is right next to an edit by the same author, edit instead
-        // of adding a new one
-        // TODO: Same problem here with multi-line edits
-        const editRange = new Span(span.start, span.start + text.length);
-        const edit: EditRange = { range: editRange, text, metadata };
-        const index = this.findLastEditBefore(span.start) + 1;
-        console.log('Inserting at', index);
-        this.edits.splice(index, 0, edit);
+        let edit: EditRange | undefined = undefined;
+        if (text.length !== 0) {
+            // TODO: If this is right next to an edit by the same author, edit instead
+            // of adding a new one
+            // TODO: Same problem here with multi-line edits
+            const editRange = new Span(span.start, span.start + text.length);
+            edit = { range: editRange, text, metadata };
+            const index = this.findLastEditBefore(span.start) + 1;
+            console.log('Inserting at', index);
+            this.edits.splice(index, 0, edit);
+        }
 
         console.log('Removing edits:', containedEdits.map(e => e.text + `[${e.range}]`).join(', '));
         // Remove contained edits, which are now superseded by this edit
@@ -172,6 +192,9 @@ export class EditList {
             const containedIndex = this.edits.indexOf(containedEdit);
             this.edits.splice(containedIndex, 1);
 
+            if (!edit) {
+                continue;
+            }
             // Expand the metadata time range to include the contained edit
             edit.metadata.startTime = Math.min(edit.metadata.startTime, containedEdit.metadata.startTime);
             edit.metadata.endTime = Math.max(edit.metadata.endTime, containedEdit.metadata.endTime);
