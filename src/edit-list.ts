@@ -97,7 +97,11 @@ export class EditList {
     }
 
     addEdit(changeEvent: IChangeEvent, metadata: Metadata) {
-        const { range, text, rangeLength } = changeEvent;
+        console.log('Current edits:', this.toStringWithRanges());
+
+        // TODO: What do we do with rangeOffset?
+        const { range, text, rangeLength, rangeOffset } = changeEvent;
+        console.log(`Adding edit: "${text}" at ${rangeToString(range)}, rangeLength: ${rangeLength}, rangeOffset: ${rangeOffset}`);
         const overlappingEdits = this.findEditsInRange(range);
         const containedEdits = [];
         for (const edit of overlappingEdits) {
@@ -106,9 +110,15 @@ export class EditList {
             if (containsStart && containsEnd) {
                 // If the edit completely contains the change range, split it into three parts
                 // Left part (before), middle part (to be replaced), right part (after)
-                const { rightEdit: rest } = this.splitEdit(edit, range.start);
-                const { leftEdit: middleEdit } = this.splitEdit(rest, range.end);
-                containedEdits.push(middleEdit);
+                if (range.start.isEqual(range.end)) {
+                    // Only need one split, and nothing is contained, since this edit
+                    // doesn't replace anything. It just splits existing text in two.
+                    this.splitEdit(edit, range.start);
+                } else {
+                    const { rightEdit: rest } = this.splitEdit(edit, range.start);
+                    const { leftEdit: middleEdit } = this.splitEdit(rest, range.end);
+                    containedEdits.push(middleEdit);
+                }
             } else if (containsStart) {
                 const { rightEdit } = this.splitEdit(edit, range.start);
                 containedEdits.push(rightEdit);
@@ -123,7 +133,11 @@ export class EditList {
         // the change because they will be removed
         // TODO: This definitely doesn't work for multi-line edits, where the text itself
         // might be the only clue about what line things end up on...
-        this.shiftEdits(range.end, text.length - rangeLength);
+        this.shiftEdits(range.end, range, text);
+
+        console.log('After splits and shifts:', this.toStringWithRanges());
+        console.log('Contained edits:', containedEdits.map(e => e.text + `[${rangeToString(e.range)}]`).join(', '));
+        console.log(`Adding edit: "${text}" at ${rangeToString(range)}`);
 
         // TODO: If this is right next to an edit by the same author, edit instead
         // of adding a new one
@@ -147,6 +161,8 @@ export class EditList {
 
         // TODO: First check if anything was added/deleted
         this.defragment();
+
+        console.log('Final edits:', this.toStringWithRanges());
     }
 
     private defragment() {
@@ -174,19 +190,36 @@ export class EditList {
         }
     }
 
+    private getSubstringFromEdit(edit: EditRange, range: vscode.Range): string {
+        if (!edit.range.contains(range)) {
+            throw new Error(`Range ${rangeToString(range)} is not contained in edit range ${rangeToString(edit.range)}`);
+        }
+        if (edit.range.isEmpty) {
+            return '';
+        }
+        if (range.end.line === edit.range.start.line) {
+            return edit.text.substring(range.start.character - edit.range.start.character, range.end.character - edit.range.start.character);
+        }
+        const lines = edit.text.split('\n');
+        const rangeLines = lines.slice(range.start.line - edit.range.start.line, range.end.line - edit.range.start.line + 1);
+        rangeLines[rangeLines.length - 1] = rangeLines[rangeLines.length - 1].substring(0, range.end.character);
+        rangeLines[0] = rangeLines[0].substring(range.start.character);
+        return rangeLines.join('\n');
+    }
+
     private splitEdit(edit: EditRange, splitPosition: vscode.Position) {
-        if (splitPosition.isBefore(edit.range.start) || splitPosition.isAfter(edit.range.end)) {
-            throw new Error('Invalid split position');
+        if (splitPosition.isBeforeOrEqual(edit.range.start) || splitPosition.isAfterOrEqual(edit.range.end)) {
+            throw new Error(`Invalid split position ${rangeToString(edit.range)} at ${positionToString(splitPosition)}`);
         }
 
         const leftEdit: EditRange = {
             range: new vscode.Range(edit.range.start, splitPosition),
-            text: edit.text.substring(0, edit.range.start.isEqual(edit.range.end) ? 0 : edit.text.length * (splitPosition.character - edit.range.start.character) / (edit.range.end.character - edit.range.start.character)),
+            text: this.getSubstringFromEdit(edit, new vscode.Range(edit.range.start, splitPosition)),
             metadata: edit.metadata
         };
         const rightEdit: EditRange = {
             range: new vscode.Range(splitPosition, edit.range.end),
-            text: edit.text.substring(edit.range.start.isEqual(edit.range.end) ? 0 : edit.text.length * (edit.range.end.character - splitPosition.character) / (edit.range.end.character - edit.range.start.character)),
+            text: this.getSubstringFromEdit(edit, new vscode.Range(splitPosition, edit.range.end)),
             metadata: edit.metadata
         };
         const index = this.edits.indexOf(edit);
@@ -194,20 +227,41 @@ export class EditList {
         return { leftEdit, rightEdit };
     }
 
-    private shiftEdits(start: vscode.Position, delta: number) {
+    private shiftEdits(start: vscode.Position, replacedRange: vscode.Range, text: string) {
+        const lines = text.split('\n');
+        const lineDelta = lines.length - (replacedRange.end.line - replacedRange.start.line + 1);
+        const lastLine = lines[lines.length - 1];
+        const lastLineCharDelta = lastLine.length - (replacedRange.end.character - (lineDelta === 0 ? replacedRange.start.character : 0));
+        for (const edit of this.edits) {
+            if (edit.range.end.isBeforeOrEqual(start)) {
+                continue;
+            }
+            // if
+            // edit.range = new vscode.Range(newStart, newEnd);
+        }
     }
 
     toPlainText(): string {
         return this.edits.map(edit => edit.text).join('');
     }
 
+    toStringWithRanges(): string {
+        return this.edits.map(edit => {
+            return `<[${edit.metadata.author}]${edit.text}${rangeToString(edit.range)}/>`;
+        }).join('');
+    }
+
     toString(): string {
         return this.edits.map(edit => {
-            return `<[${edit.metadata.author}]"${edit.text}/>`;
+            return `<[${edit.metadata.author}]${edit.text}/>`;
         }).join('');
     }
 }
 
+export function positionToString(position: vscode.Position): string {
+    return `(${position.line},${position.character})`;
+}
+
 export function rangeToString(range: vscode.Range): string {
-    return `(${range.start.line},${range.start.character})-(${range.end.line},${range.end.character})`;
+    return `[${positionToString(range.start)} - ${positionToString(range.end)}]`;
 }

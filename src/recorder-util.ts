@@ -5,6 +5,7 @@ export interface IChangeEvent {
     range: vscode.Range;
     text: string;
     rangeLength: number;
+    rangeOffset?: number;
 }
 
 export type EventLog = {
