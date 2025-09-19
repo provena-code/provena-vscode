@@ -1,0 +1,18 @@
+.author-user  {
+    background-color: #D1E7DD;
+    color: #0F5132;
+}
+.author-other  {
+    background-color: #F8D7DA;
+    color: #721C24;
+}
+
+#code-container {
+    font-family: Consolas, 'Courier New', monospace;
+    white-space: pre-wrap; /* Preserve whitespace and wrap as needed */
+    word-wrap: break-word; /* Break long words to prevent overflow */
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    overflow-x: auto;
+}

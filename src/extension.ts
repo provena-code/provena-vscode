@@ -1,8 +1,10 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-import { EditList, Metadata } from './edit-list';
+import { EditList } from './edit-list';
+import { Metadata } from './shared/edit-data';
 import { EventRecorderMap } from './recorder';
+import { EditDisplay } from './edit-display';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -13,31 +15,31 @@ export function activate(context: vscode.ExtensionContext) {
 	const disposables = [];
 
 	const panel = vscode.window.createWebviewPanel(
-		'myWebview', // internal identifier
-		'My Webview', // title shown to user
+		'ta-display', // internal identifier
+		'Authorship', // title shown to user
 		vscode.ViewColumn.Two, // editor column to show
 		{
 			enableScripts: true, // allow JS in the webview
 		}
 	);
+	const editDisplay = new EditDisplay(panel, editList, context, vscode.Uri.file(''));
 	disposables.push(panel);
 
 	console.log('start!');
 
 
-	disposables.push(vscode.workspace.onDidOpenTextDocument(document => {
-		console.log(`Document opened: ${document.uri.toString()}`);
-		console.log(`Text: ${document.getText().substring(0, 100)}`);
-		editList.setInitialText(document.getText(), {
+	disposables.push(vscode.workspace.onDidChangeTextDocument(event => {
+		console.log(`Document changed: ${event.document.uri.toString()}`);
+		editList.setInitialText(event.document.getText(), {
 			author: 'init',
 			startTime: new Date().getTime(),
 			endTime: new Date().getTime(),
 		});
-		panel.webview.html = `<html><body><pre>${editList.toStringWithRanges()}</pre></body></html>`;
+		editDisplay.update();
 	}));
 
 	disposables.push(vscode.workspace.onDidChangeTextDocument(event => {
-		recorderMap.getRecorder(event.document.uri, false).record(event);
+		recorderMap.getRecorder(event.document.uri, true).record(event);
 		console.log(`Reason: ${event.reason}, count: ${event.contentChanges.length}`);
 		let author = 'other';
 		const date = new Date().getTime();
@@ -67,7 +69,7 @@ export function activate(context: vscode.ExtensionContext) {
 			editList.addEdit(change, metadata);
 			// console.log(`Document changed: ${change.text}, range: ${rangeToString(change.range)}, rangeLength: ${change.rangeLength}`);
 		});
-		panel.webview.html = `<html><body><pre>${editList.toStringWithRanges()}</pre></body></html>`;
+		editDisplay.update();
 		console.log(`Current edits: ${editList.toString()}`);
 	}));
 

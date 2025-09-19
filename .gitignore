@@ -1,5 +1,7 @@
 out
 dist
 node_modules
+media/bundle.js
+media/bundle.js.map
 .vscode-test/
 *.vsix

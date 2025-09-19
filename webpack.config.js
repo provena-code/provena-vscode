@@ -45,4 +45,26 @@ const extensionConfig = {
     level: "log", // enables logging required for problem matchers
   },
 };
-module.exports = [ extensionConfig ];
+
+/** Webview client config */
+const webviewConfig = {
+  target: 'web', // webview runs in browser
+  mode: 'none',
+
+  entry: './src/webview/index.ts', // entry for your client app
+  output: {
+    path: path.resolve(__dirname, 'media'),
+    filename: 'bundle.js',
+  },
+  resolve: {
+    extensions: ['.ts', '.tsx', '.js']
+  },
+  module: {
+    rules: [
+      { test: /\.tsx?$/, exclude: /node_modules/, use: 'ts-loader' }
+    ]
+  },
+  devtool: 'source-map',
+};
+
+module.exports = [ extensionConfig, webviewConfig ];

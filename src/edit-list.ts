@@ -1,36 +1,5 @@
 import { IChangeEvent } from './recorder-util';
-
-export type Metadata = {
-    author: string;
-    startTime: number;
-    endTime: number;
-}
-
-export type EditRange = {
-    range: Span;
-    text: string;
-    metadata: Metadata;
-}
-
-class Span {
-    constructor(public readonly start: number, public readonly end: number) {
-        if (start > end) {
-            throw new Error(`Invalid span: start ${start} > end ${end}`);
-        }
-    }
-
-    contains(position: number) {
-        return position >= this.start && position <= this.end;
-    }
-
-    shift(delta: number): Span {
-        return new Span(this.start + delta, this.end + delta);
-    }
-
-    toString() {
-        return `[${this.start}, ${this.end}]`;
-    }
-}
+import { EditRange, Span, Metadata } from './shared/edit-data';
 
 /**
  * Manages a history of edits with associated metadata from a code file.
@@ -42,6 +11,10 @@ export class EditList {
     private edits = [] as EditRange[];
 
     trace: (...args: any[]) => void = (..._args: any[]) => { };
+
+    getEdits(): readonly EditRange[] {
+        return this.edits;
+    }
 
     // Use binary search to find the edit at a given position
     findEditAt(position: number): EditRange | undefined {
