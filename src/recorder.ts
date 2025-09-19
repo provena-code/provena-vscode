@@ -46,19 +46,6 @@ export class FileOutputStream implements OutputStream {
 
 }
 
-export class EventRecorderMap {
-    private streamMap: Map<string, EventRecorder> = new Map();
-
-    getRecorder(fileUri: vscode.Uri, overwrite: boolean): EventRecorder {
-        const key = fileUri.toString();
-        if (!this.streamMap.has(key)) {
-            const stream = new EventRecorder(FileOutputStream.nextToFileUri(fileUri, overwrite));
-            this.streamMap.set(key, stream);
-        }
-        return this.streamMap.get(key)!;
-    }
-}
-
 
 export class EventRecorder {
     private hasInitialized = false;

@@ -6,15 +6,13 @@ export class EditDisplay {
 
     constructor(
         readonly panel: vscode.WebviewPanel,
-        readonly editList: EditList,
         context: vscode.ExtensionContext,
-        fileUri: vscode.Uri,
     ) {
         this.panel.webview.html = this.getWebviewContent(this.panel.webview, context.extensionUri);
     }
 
-    public update() {
-        const edits = this.editList.getEdits();
+    public update(editList: EditList) {
+        const edits = editList.getEdits();
         this.panel.webview.postMessage({ type: 'updateEdits', edits });
     }
 

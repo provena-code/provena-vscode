@@ -3,15 +3,14 @@
 import * as vscode from 'vscode';
 import { EditList } from './edit-list';
 import { Metadata } from './shared/edit-data';
-import { EventRecorderMap } from './recorder';
+import { FileDataMap } from './files';
 import { EditDisplay } from './edit-display';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
 
-	const editList = new EditList();
-	const recorderMap = new EventRecorderMap();
+	const fileDataMap = new FileDataMap();
 	const disposables = [];
 
 	const panel = vscode.window.createWebviewPanel(
@@ -22,24 +21,33 @@ export function activate(context: vscode.ExtensionContext) {
 			enableScripts: true, // allow JS in the webview
 		}
 	);
-	const editDisplay = new EditDisplay(panel, editList, context, vscode.Uri.file(''));
+	const editDisplay = new EditDisplay(panel, context);
 	disposables.push(panel);
 
 	console.log('start!');
 
 
-	disposables.push(vscode.workspace.onDidChangeTextDocument(event => {
-		console.log(`Document changed: ${event.document.uri.toString()}`);
-		editList.setInitialText(event.document.getText(), {
-			author: 'init',
-			startTime: new Date().getTime(),
-			endTime: new Date().getTime(),
-		});
-		editDisplay.update();
+	disposables.push(vscode.window.onDidChangeActiveTextEditor(editor => {
+		if (!editor) {
+			return;
+		}
+		console.log(`Document changed: ${editor.document.uri.toString()}`);
+		const { editList } = fileDataMap.getFileData(editor.document.uri, true);
+		if (editList.isEmpty()) {
+			editList.setInitialText(editor.document.getText(), {
+				author: 'init',
+				startTime: new Date().getTime(),
+				endTime: new Date().getTime(),
+			});
+		} else {
+			// TODO: Ensure that last text == new text
+		}
+		editDisplay.update(editList);
 	}));
 
 	disposables.push(vscode.workspace.onDidChangeTextDocument(event => {
-		recorderMap.getRecorder(event.document.uri, true).record(event);
+		const { editList, eventRecorder } = fileDataMap.getFileData(event.document.uri, true);
+		eventRecorder.record(event);
 		console.log(`Reason: ${event.reason}, count: ${event.contentChanges.length}`);
 		let author = 'other';
 		const date = new Date().getTime();
@@ -69,8 +77,8 @@ export function activate(context: vscode.ExtensionContext) {
 			editList.addEdit(change, metadata);
 			// console.log(`Document changed: ${change.text}, range: ${rangeToString(change.range)}, rangeLength: ${change.rangeLength}`);
 		});
-		editDisplay.update();
-		console.log(`Current edits: ${editList.toString()}`);
+		editDisplay.update(editList);
+		// console.log(`Current edits: ${editList.toString()}`);
 	}));
 
 	context.subscriptions.push(...disposables);

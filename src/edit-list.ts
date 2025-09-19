@@ -16,6 +16,10 @@ export class EditList {
         return this.edits;
     }
 
+    isEmpty(): boolean {
+        return this.edits.length === 0;
+    }
+
     // Use binary search to find the edit at a given position
     findEditAt(position: number): EditRange | undefined {
         let low = 0;
