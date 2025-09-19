@@ -18,9 +18,9 @@ function normalizeLineEndings(text: string): string {
 
 function readTestFile(name: string): EventLog[] {
   const filePath = join(__dirname, 'data', name);
-  let content = readFileSync(filePath, 'utf-8');
-  if (content.trim().endsWith(',')) {
-    content = content.trim().slice(0, -1) + ']';
+  let content = readFileSync(filePath, 'utf-8').trim();
+  if (content.endsWith(',')) {
+    content = content.slice(0, -1) + ']';
   }
   return JSON.parse(content); // Validate JSON
 }
@@ -28,13 +28,17 @@ function readTestFile(name: string): EventLog[] {
 function testFile(name: string) {
   const data = readTestFile(name);
   const editList = new EditList();
+  editList.trace = (...args: any[]) => { console.log(...args); };
+  console.log(`Testing file ${name} with ${data.length} events`);
+  let firstEvent = true;
   data.forEach(event => {
-    if (!event.contentChanges) {
+    if (firstEvent) {
       editList.setInitialText(event.documentText, {
         author: 'existing-text',
         startTime: event.time,
         endTime: event.time,
       });
+      firstEvent = false;
       return;
     }
     event.contentChanges.forEach(change => {
@@ -65,12 +69,15 @@ function testFile(name: string) {
 
 const testFiles = [
   'test1.log',
+  'test2.log',
 ];
 
 describe('Edit List Tests', () => {
-  it('should correctly apply edits from the log', () => {
-    testFiles.forEach(file => {
-      testFile(file);
-    });
+  it('should reproduce test1', () => {
+    testFile('test1.log');
+  });
+  it('should reproduce test2', () => {
+    console.log("!!!")
+    testFile('test2.log');
   });
 });

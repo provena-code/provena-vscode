@@ -102,46 +102,77 @@ export class EditList {
         const overlappingEdits = this.findEditsInRange(span);
         const containedEdits = [];
         for (const edit of overlappingEdits) {
-            const containsStart = edit.range.contains(span.start);
-            const containsEnd = edit.range.contains(span.end);
-            // If edits abut but don't overlap meaningfully, skip them
-            if (edit.range.end === span.start || edit.range.start === span.end) {
-                continue;
-            }
+            let endEdit = edit;
+
+            const containsStart = edit.range.containsProperly(span.start);
+            const containsEnd = edit.range.containsProperly(span.end);
             if (containsStart && containsEnd) {
                 if (span.start === span.end) {
                     // If it's a 0-length edit (insertion)
                     // Only need one split, and nothing is contained, since this edit
                     // doesn't replace anything. It just splits existing text in two.
                     this.splitEdit(edit, span.start);
-                } else if (span.start === edit.range.start && span.end === edit.range.end) {
-                    // If the edit exactly matches the change range, just remove it
-                    // No need to split it up
-                    containedEdits.push(edit);
-                } else if (span.start === edit.range.start) {
-                    // If the edit starts at the same place as the change range, split off the end
-                    const { leftEdit } = this.splitEdit(edit, span.end);
-                    containedEdits.push(leftEdit);
-                } else if (span.end === edit.range.end) {
-                    // If the edit ends at the same place as the change range, split off the start
-                    const { rightEdit } = this.splitEdit(edit, span.start);
-                    containedEdits.push(rightEdit);
                 } else {
                     // If the edit completely contains the change range, split it into three parts
                     // Left part (before), middle part (to be replaced), right part (after)
-                    const { rightEdit: rest } = this.splitEdit(edit, span.start);
-                    const { leftEdit: middleEdit } = this.splitEdit(rest, span.end);
-                    containedEdits.push(middleEdit);
+                    const { rightEdit } = this.splitEdit(edit, span.start);
+                    const { leftEdit } = this.splitEdit(rightEdit, span.end);
+                    containedEdits.push(leftEdit);
                 }
             } else if (containsStart) {
+                // If the edit contains only the start of the change range, split off the end
                 const { rightEdit } = this.splitEdit(edit, span.start);
                 containedEdits.push(rightEdit);
             } else if (containsEnd) {
+                // If the edit contains only the end of the change range, split off the start
                 const { leftEdit } = this.splitEdit(edit, span.end);
                 containedEdits.push(leftEdit);
+            } else if (span.start === edit.range.start && span.end === edit.range.end) {
+                // If the edit exactly matches the change range, just remove it
+                // No need to split it up
+                containedEdits.push(edit);
             } else {
                 console.warn('Overlapping edits should be split', edit, span);
             }
+
+            // // If edits abut but don't overlap meaningfully, skip them
+            // if (edit.range.end === span.start || edit.range.start === span.end) {
+            //     continue;
+            // }
+            // if (containsStart && containsEnd) {
+            //     if (span.start === span.end) {
+            //         // If it's a 0-length edit (insertion)
+            //         // Only need one split, and nothing is contained, since this edit
+            //         // doesn't replace anything. It just splits existing text in two.
+            //         this.splitEdit(edit, span.start);
+            //     } else if (span.start === edit.range.start && span.end === edit.range.end) {
+            //         // If the edit exactly matches the change range, just remove it
+            //         // No need to split it up
+            //         containedEdits.push(edit);
+            //     } else if (span.start === edit.range.start) {
+            //         // If the edit starts at the same place as the change range, split off the end
+            //         const { leftEdit } = this.splitEdit(edit, span.end);
+            //         containedEdits.push(leftEdit);
+            //     } else if (span.end === edit.range.end) {
+            //         // If the edit ends at the same place as the change range, split off the start
+            //         const { rightEdit } = this.splitEdit(edit, span.start);
+            //         containedEdits.push(rightEdit);
+            //     } else {
+            //         // If the edit completely contains the change range, split it into three parts
+            //         // Left part (before), middle part (to be replaced), right part (after)
+            //         const { rightEdit: rest } = this.splitEdit(edit, span.start);
+            //         const { leftEdit: middleEdit } = this.splitEdit(rest, span.end);
+            //         containedEdits.push(middleEdit);
+            //     }
+            // } else if (containsStart) {
+            //     const { rightEdit } = this.splitEdit(edit, span.start);
+            //     containedEdits.push(rightEdit);
+            // } else if (containsEnd) {
+            //     const { leftEdit } = this.splitEdit(edit, span.end);
+            //     containedEdits.push(leftEdit);
+            // } else {
+            //     console.warn('Overlapping edits should be split', edit, span);
+            // }
         }
         // We don't have to worry about shifting edits that overlap with
         // the change because they will be removed
@@ -151,10 +182,10 @@ export class EditList {
 
         this.trace('After splits and shifts:', this.toStringWithRanges());
         this.trace('Contained edits:', containedEdits.map(e => e.text + `[${e.range}]`).join(', '));
-        this.trace(`Adding edit: "${text}" at ${span}`);
 
         let edit: EditRange | undefined = undefined;
         if (text.length !== 0) {
+            this.trace(`Adding edit: "${text}" at ${span}`);
             // TODO: If this is right next to an edit by the same author, edit instead
             // of adding a new one
             // TODO: Same problem here with multi-line edits

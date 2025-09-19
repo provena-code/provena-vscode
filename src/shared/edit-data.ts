@@ -23,6 +23,10 @@ export class Span {
         return position >= this.start && position <= this.end;
     }
 
+    containsProperly(position: number) {
+        return position > this.start && position < this.end;
+    }
+
     shift(delta: number): Span {
         return new Span(this.start + delta, this.end + delta);
     }
