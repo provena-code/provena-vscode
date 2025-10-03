@@ -11,6 +11,13 @@ export type EditRange = {
     metadata: Metadata;
 }
 
+export function copyEditRange(edit: EditRange): EditRange {
+    return {
+        range: edit.range.copy(),
+        text: edit.text,
+        metadata: { ...edit.metadata }
+    };
+}
 
 export class Span {
     constructor(public readonly start: number, public readonly end: number) {
@@ -33,5 +40,9 @@ export class Span {
 
     toString() {
         return `[${this.start}, ${this.end}]`;
+    }
+
+    copy() {
+        return new Span(this.start, this.end);
     }
 }

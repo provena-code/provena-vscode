@@ -10,7 +10,7 @@ import { EditDisplay } from './edit-display';
 // Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
 
-	const fileDataMap = new FileDataMap();
+	const fileDataMap = new FileDataMap(true);
 	const disposables = [];
 
 	const panel = vscode.window.createWebviewPanel(
@@ -32,7 +32,7 @@ export function activate(context: vscode.ExtensionContext) {
 			return;
 		}
 		console.log(`Document changed: ${editor.document.uri.toString()}`);
-		const { editList } = fileDataMap.getFileData(editor.document.uri, true);
+		const { editList } = fileDataMap.getFileData(editor.document.uri);
 		if (editList.isEmpty()) {
 			editList.setInitialText(editor.document.getText(), {
 				author: 'init',
@@ -45,12 +45,23 @@ export function activate(context: vscode.ExtensionContext) {
 		editDisplay.update(editList);
 	}));
 
-	disposables.push(vscode.workspace.onDidChangeTextDocument(event => {
-		const { editList, eventRecorder } = fileDataMap.getFileData(event.document.uri, true);
+	disposables.push(vscode.workspace.onDidChangeTextDocument(async event => {
+		const { editList, eventRecorder } = fileDataMap.getFileData(event.document.uri);
 		eventRecorder.record(event);
 		console.log(`Reason: ${event.reason}, count: ${event.contentChanges.length}`);
 		let author = 'other';
 		const date = new Date().getTime();
+
+		// if (event.reason === vscode.TextDocumentChangeReason.Undo) {
+		// 	author = 'user';
+		// 	fileDataMap.pushUndo(event.document.uri);
+		// 	// Then proceed with the edit (which will be a )
+		// } else if (event.reason === vscode.TextDocumentChangeReason.Redo) {
+
+		// }
+
+		const text = await vscode.env.clipboard.readText();
+
 		if (event.reason === undefined) {
 			if (event.contentChanges.length === 1) {
 				if (event.contentChanges[0].text.length <= 3) {

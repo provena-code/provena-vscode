@@ -1,5 +1,5 @@
 import { IChangeEvent } from './recorder-util';
-import { EditRange, Span, Metadata } from './shared/edit-data';
+import { EditRange, Span, Metadata, copyEditRange } from './shared/edit-data';
 
 /**
  * Manages a history of edits with associated metadata from a code file.
@@ -299,5 +299,11 @@ export class EditList {
         return this.edits.map(edit => {
             return `<[${edit.metadata.author}]${edit.text}/>`;
         }).join('');
+    }
+
+    copy() {
+        const newList = new EditList();
+        newList.edits = this.edits.map(copyEditRange);
+        return newList;
     }
 }
