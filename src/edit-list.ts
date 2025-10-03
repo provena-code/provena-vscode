@@ -102,8 +102,6 @@ export class EditList {
         const overlappingEdits = this.findEditsInRange(span);
         const containedEdits = [];
         for (const edit of overlappingEdits) {
-            let endEdit = edit;
-
             const containsStart = edit.range.containsProperly(span.start);
             const containsEnd = edit.range.containsProperly(span.end);
             if (containsStart && containsEnd) {
@@ -127,12 +125,12 @@ export class EditList {
                 // If the edit contains only the end of the change range, split off the start
                 const { leftEdit } = this.splitEdit(edit, span.end);
                 containedEdits.push(leftEdit);
-            } else if (span.start === edit.range.start && span.end === edit.range.end) {
-                // If the edit exactly matches the change range, just remove it
+            } else if (span.start <= edit.range.start && span.end >= edit.range.end) {
+                // If the span completely contains the edit, just remove it;
                 // No need to split it up
                 containedEdits.push(edit);
             } else {
-                console.warn('Overlapping edits should be split', edit, span);
+                this.trace(`Overlapping edits should be split: contains start ${containsStart}, contains end ${containsEnd}`, edit, span);
             }
 
             // // If edits abut but don't overlap meaningfully, skip them
@@ -171,24 +169,20 @@ export class EditList {
             //     const { leftEdit } = this.splitEdit(edit, span.end);
             //     containedEdits.push(leftEdit);
             // } else {
-            //     console.warn('Overlapping edits should be split', edit, span);
+            //     this.trace('Overlapping edits should be split', edit, span);
             // }
         }
         // We don't have to worry about shifting edits that overlap with
         // the change because they will be removed
-        // TODO: This definitely doesn't work for multi-line edits, where the text itself
-        // might be the only clue about what line things end up on...
         this.shiftEdits(span.end, span, text);
 
         this.trace('After splits and shifts:', this.toStringWithRanges());
-        this.trace('Contained edits:', containedEdits.map(e => e.text + `[${e.range}]`).join(', '));
 
         let edit: EditRange | undefined = undefined;
         if (text.length !== 0) {
             this.trace(`Adding edit: "${text}" at ${span}`);
             // TODO: If this is right next to an edit by the same author, edit instead
             // of adding a new one
-            // TODO: Same problem here with multi-line edits
             const editRange = new Span(span.start, span.start + text.length);
             edit = { range: editRange, text, metadata };
             const index = this.findLastEditBefore(span.start) + 1;

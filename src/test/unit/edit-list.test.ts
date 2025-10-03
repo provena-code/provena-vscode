@@ -42,6 +42,7 @@ function testFile(name: string) {
       return;
     }
     event.contentChanges.forEach(change => {
+      console.log('------------------------- Change -------------------------');
       console.log(change);
       // Range and Position output to JSON as simplified data
       // representations, so we need to convert them back.
