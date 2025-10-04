@@ -5,7 +5,7 @@ export type Metadata = {
     endTime: number;
 }
 
-export type EditRange = {
+export interface EditRange {
     range: Span;
     text: string;
     metadata: Metadata;
@@ -17,6 +17,28 @@ export function copyEditRange(edit: EditRange): EditRange {
         text: edit.text,
         metadata: { ...edit.metadata }
     };
+}
+
+export class EditNode implements EditRange {
+    public readonly children: EditNode[] = [];
+
+    constructor(
+        public range: Span,
+        public text: string,
+        public metadata: Metadata
+    ) { 
+
+    }
+
+    shallowCopy(): EditNode {
+        const copy = new EditNode(
+            this.range.copy(),
+            this.text,
+            { ...this.metadata }
+        );
+        copy.children.push(...this.children);
+        return copy;
+    }
 }
 
 export class Span {

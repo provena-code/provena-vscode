@@ -1,5 +1,6 @@
+import { deprecate } from 'node:util';
 import { IChangeEvent } from './recorder-util';
-import { EditRange, Span, Metadata, copyEditRange } from './shared/edit-data';
+import { EditRange, Span, Metadata, copyEditRange, EditNode } from './shared/edit-data';
 
 /**
  * Manages a history of edits with associated metadata from a code file.
@@ -8,7 +9,8 @@ import { EditRange, Span, Metadata, copyEditRange } from './shared/edit-data';
 // TODO: All indexOf calls could be replaced with binary search for efficiency
 // or a map from range to edit could be maintained
 export class EditList {
-    private edits = [] as EditRange[];
+    private edits = [] as EditNode[];
+    private readonly headChildren = [] as EditNode[];
 
     trace: (...args: any[]) => void = (..._args: any[]) => { };
 
@@ -21,21 +23,23 @@ export class EditList {
     }
 
     // Use binary search to find the edit at a given position
-    findEditAt(position: number): EditRange | undefined {
-        let low = 0;
-        let high = this.edits.length - 1;
-        while (low <= high) {
-            const mid = Math.floor((low + high) / 2);
-            const edit = this.edits[mid];
-            if (edit.range.contains(position)) return edit;
-            if (edit.range.end < position) low = mid + 1;
-            else high = mid - 1;
-        }
-        return undefined;
-    }
+    // This method is a bit confusing, since there could be 
+    // two edits abutting the position; currently unused
+    // findEditAt(position: number): EditNode | undefined {
+    //     let low = 0;
+    //     let high = this.edits.length - 1;
+    //     while (low <= high) {
+    //         const mid = Math.floor((low + high) / 2);
+    //         const edit = this.edits[mid];
+    //         if (edit.range.contains(position)) return edit;
+    //         if (edit.range.end < position) low = mid + 1;
+    //         else high = mid - 1;
+    //     }
+    //     return undefined;
+    // }
 
-    findEditsInRange(range: Span): EditRange[] {
-        const result: EditRange[] = [];
+    findEditsInRange(range: Span): EditNode[] {
+        const result: EditNode[] = [];
         let lastBefore = this.findLastEditBefore(range.start);
         let firstAfter = this.findFirstEditAfter(range.end);
         if (firstAfter === -1) firstAfter = this.edits.length;
@@ -89,7 +93,9 @@ export class EditList {
             throw new Error('Initial text can only be set on an empty EditList');
         }
         const range = new Span(0, text.length);
-        this.edits.push({ range, text, metadata });
+        const child = new EditNode(range, text, metadata);
+        this.edits.push(child);
+        this.headChildren.push(child);
     }
 
     addEdit(changeEvent: IChangeEvent, metadata: Metadata) {
@@ -97,97 +103,74 @@ export class EditList {
 
         // TODO: What do we do with rangeOffset?
         const { text, rangeLength, rangeOffset } = changeEvent;
-        const span = new Span(rangeOffset, rangeLength + rangeOffset);
-        this.trace(`Adding edit: "${text}" at ${span}`);
-        const overlappingEdits = this.findEditsInRange(span);
+        const replacedSpan = new Span(rangeOffset, rangeLength + rangeOffset);
+        this.trace(`Adding edit: "${text}" at ${replacedSpan}`);
+        const overlappingEdits = this.findEditsInRange(replacedSpan);
         const containedEdits = [];
         for (const edit of overlappingEdits) {
-            const containsStart = edit.range.containsProperly(span.start);
-            const containsEnd = edit.range.containsProperly(span.end);
+            const containsStart = edit.range.containsProperly(replacedSpan.start);
+            const containsEnd = edit.range.containsProperly(replacedSpan.end);
             if (containsStart && containsEnd) {
-                if (span.start === span.end) {
+                if (replacedSpan.start === replacedSpan.end) {
                     // If it's a 0-length edit (insertion)
                     // Only need one split, and nothing is contained, since this edit
                     // doesn't replace anything. It just splits existing text in two.
-                    this.splitEdit(edit, span.start);
+                    this.splitEdit(edit, replacedSpan.start);
                 } else {
                     // If the edit completely contains the change range, split it into three parts
                     // Left part (before), middle part (to be replaced), right part (after)
-                    const { rightEdit } = this.splitEdit(edit, span.start);
-                    const { leftEdit } = this.splitEdit(rightEdit, span.end);
+                    const { rightEdit } = this.splitEdit(edit, replacedSpan.start);
+                    const { leftEdit } = this.splitEdit(rightEdit, replacedSpan.end);
                     containedEdits.push(leftEdit);
                 }
             } else if (containsStart) {
                 // If the edit contains only the start of the change range, split off the end
-                const { rightEdit } = this.splitEdit(edit, span.start);
+                const { rightEdit } = this.splitEdit(edit, replacedSpan.start);
                 containedEdits.push(rightEdit);
             } else if (containsEnd) {
                 // If the edit contains only the end of the change range, split off the start
-                const { leftEdit } = this.splitEdit(edit, span.end);
+                const { leftEdit } = this.splitEdit(edit, replacedSpan.end);
                 containedEdits.push(leftEdit);
-            } else if (span.start <= edit.range.start && span.end >= edit.range.end) {
+            } else if (replacedSpan.start <= edit.range.start && replacedSpan.end >= edit.range.end) {
                 // If the span completely contains the edit, just remove it;
                 // No need to split it up
                 containedEdits.push(edit);
             } else {
-                this.trace(`Overlapping edits should be split: contains start ${containsStart}, contains end ${containsEnd}`, edit, span);
+                this.trace(`Overlapping edits should be split: contains start ${containsStart}, contains end ${containsEnd}`, edit, replacedSpan);
             }
-
-            // // If edits abut but don't overlap meaningfully, skip them
-            // if (edit.range.end === span.start || edit.range.start === span.end) {
-            //     continue;
-            // }
-            // if (containsStart && containsEnd) {
-            //     if (span.start === span.end) {
-            //         // If it's a 0-length edit (insertion)
-            //         // Only need one split, and nothing is contained, since this edit
-            //         // doesn't replace anything. It just splits existing text in two.
-            //         this.splitEdit(edit, span.start);
-            //     } else if (span.start === edit.range.start && span.end === edit.range.end) {
-            //         // If the edit exactly matches the change range, just remove it
-            //         // No need to split it up
-            //         containedEdits.push(edit);
-            //     } else if (span.start === edit.range.start) {
-            //         // If the edit starts at the same place as the change range, split off the end
-            //         const { leftEdit } = this.splitEdit(edit, span.end);
-            //         containedEdits.push(leftEdit);
-            //     } else if (span.end === edit.range.end) {
-            //         // If the edit ends at the same place as the change range, split off the start
-            //         const { rightEdit } = this.splitEdit(edit, span.start);
-            //         containedEdits.push(rightEdit);
-            //     } else {
-            //         // If the edit completely contains the change range, split it into three parts
-            //         // Left part (before), middle part (to be replaced), right part (after)
-            //         const { rightEdit: rest } = this.splitEdit(edit, span.start);
-            //         const { leftEdit: middleEdit } = this.splitEdit(rest, span.end);
-            //         containedEdits.push(middleEdit);
-            //     }
-            // } else if (containsStart) {
-            //     const { rightEdit } = this.splitEdit(edit, span.start);
-            //     containedEdits.push(rightEdit);
-            // } else if (containsEnd) {
-            //     const { leftEdit } = this.splitEdit(edit, span.end);
-            //     containedEdits.push(leftEdit);
-            // } else {
-            //     this.trace('Overlapping edits should be split', edit, span);
-            // }
         }
         // We don't have to worry about shifting edits that overlap with
         // the change because they will be removed
-        this.shiftEdits(span.end, span, text);
+        this.shiftEdits(replacedSpan.end, replacedSpan, text);
 
         this.trace('After splits and shifts:', this.toStringWithRanges());
 
-        let edit: EditRange | undefined = undefined;
         if (text.length !== 0) {
-            this.trace(`Adding edit: "${text}" at ${span}`);
-            // TODO: If this is right next to an edit by the same author, edit instead
-            // of adding a new one
-            const editRange = new Span(span.start, span.start + text.length);
-            edit = { range: editRange, text, metadata };
-            const index = this.findLastEditBefore(span.start) + 1;
-            this.trace('Inserting at', index);
-            this.edits.splice(index, 0, edit);
+            const index = this.findLastEditBefore(replacedSpan.start) + 1;
+            const priorEdit = this.edits[index - 1];
+            const subsequentEdit = this.edits[index];
+            if (priorEdit && priorEdit.metadata.author === metadata.author && priorEdit.range.end === replacedSpan.start) {
+                // If this edit is immediately after an edit by the same author, merge them
+                this.trace('Merging with prior edit', priorEdit, `${priorEdit.text} -> "${priorEdit.text + text}"`);
+                priorEdit.range = new Span(priorEdit.range.start, replacedSpan.start + text.length);
+                priorEdit.text += text;
+                priorEdit.metadata.endTime = metadata.endTime;
+
+                // No need to connect to subsequent edit; split would have already done so
+            } else {
+                // Otherwise, insert a new edit
+                this.trace(`Adding edit: "${text}" at ${replacedSpan}`);
+                const editRange = new Span(replacedSpan.start, replacedSpan.start + text.length);
+                const edit = new EditNode(editRange, text, metadata);
+                this.trace('Inserting at', index);
+                this.edits.splice(index, 0, edit);
+
+                if (subsequentEdit && subsequentEdit.range.start === edit.range.end) {
+                    // If this edit is immediately before an edit, connect them
+                    this.trace('Connecting to subsequent edit');
+                    edit.children.push(subsequentEdit);
+                }
+            }
         }
 
         this.trace('Removing edits:', containedEdits.map(e => e.text + `[${e.range}]`).join(', '));
@@ -195,40 +178,42 @@ export class EditList {
         for (const containedEdit of containedEdits) {
             const containedIndex = this.edits.indexOf(containedEdit);
             this.edits.splice(containedIndex, 1);
-
-            if (!edit) {
-                continue;
-            }
-            // Expand the metadata time range to include the contained edit
-            edit.metadata.startTime = Math.min(edit.metadata.startTime, containedEdit.metadata.startTime);
-            edit.metadata.endTime = Math.max(edit.metadata.endTime, containedEdit.metadata.endTime);
         }
 
-        // TODO: First check if anything was added/deleted
-        this.defragment();
+        // this.defragment();
 
         this.trace('Final edits:', this.toStringWithRanges());
     }
 
+    // Not needed, since we append to existing edits, and we don't actually
+    // want to heal splits in the graph
     private defragment() {
         for (let i = 0; i < this.edits.length - 1; i++) {
             const current = this.edits[i];
             const next = this.edits[i + 1];
-            this.trace(`Checking ${current.range} and ${next.range}`);
+            // this.trace(`Checking ${current.range} and ${next.range}`);
             if (current.range.end === next.range.start &&
                 current.metadata.author === next.metadata.author
             ) {
                 this.trace('Merging edits');
                 // Merge next into current
-                const mergedEdit: EditRange = {
-                    range: new Span(current.range.start, next.range.end),
-                    text: current.text + next.text,
-                    metadata: {
+                const mergedEdit = new EditNode(
+                    new Span(current.range.start, next.range.end),
+                    current.text + next.text,
+                    {
                         author: current.metadata.author,
                         startTime: Math.min(current.metadata.startTime, next.metadata.startTime),
                         endTime: Math.max(current.metadata.endTime, next.metadata.endTime)
                     }
-                };
+                );
+                for (const child of current.children) {
+                    if (child !== next) {
+                        mergedEdit.children.push(child);
+                    }
+                }
+                for (const child of next.children) {
+                    mergedEdit.children.push(child);
+                }
                 this.edits.splice(i, 2, mergedEdit);
                 i--; // Recheck at this index
             }
@@ -252,21 +237,23 @@ export class EditList {
     //     return rangeLines.join('\n');
     // }
 
-    private splitEdit(edit: EditRange, splitPosition: number) {
+    private splitEdit(edit: EditNode, splitPosition: number) {
         if (splitPosition <= edit.range.start || splitPosition >= edit.range.end) {
             throw new Error(`Invalid split position ${edit.range} at ${splitPosition}`);
         }
 
-        const leftEdit: EditRange = {
-            range: new Span(edit.range.start, splitPosition),
-            text: edit.text.substring(0, splitPosition - edit.range.start),
-            metadata: edit.metadata
-        };
-        const rightEdit: EditRange = {
-            range: new Span(splitPosition, edit.range.end),
-            text: edit.text.substring(splitPosition - edit.range.start),
-            metadata: edit.metadata
-        };
+        const leftEdit: EditNode = new EditNode(
+            new Span(edit.range.start, splitPosition),
+            edit.text.substring(0, splitPosition - edit.range.start),
+            edit.metadata
+        );
+        const rightEdit: EditNode = new EditNode(
+            new Span(splitPosition, edit.range.end),
+            edit.text.substring(splitPosition - edit.range.start),
+            edit.metadata
+        );
+        leftEdit.children.push(rightEdit);
+        rightEdit.children.push(...edit.children);
         const index = this.edits.indexOf(edit);
         this.edits.splice(index, 1, leftEdit, rightEdit);
         return { leftEdit, rightEdit };
@@ -301,9 +288,12 @@ export class EditList {
         }).join('');
     }
 
+    // TODO: Not sure how I want to copy the nodes 
+    // or if that's even necessary with the new approach
     copy() {
         const newList = new EditList();
-        newList.edits = this.edits.map(copyEditRange);
+        // TODO: Note shallow copy
+        newList.edits = this.edits.map(e => e.shallowCopy());
         return newList;
     }
 }
