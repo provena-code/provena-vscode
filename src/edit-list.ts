@@ -149,7 +149,12 @@ export class EditList {
             const index = this.findLastEditBefore(replacedSpan.start) + 1;
             const priorEdit = this.edits[index - 1];
             const subsequentEdit = this.edits[index];
-            if (priorEdit && priorEdit.metadata.author === metadata.author && priorEdit.range.end === replacedSpan.start) {
+            if (priorEdit && priorEdit.metadata.author === metadata.author && priorEdit.range.end === replacedSpan.start && 
+                // Make sure that this edit existed before any splits, i.e. it wasn't created by this insertion
+                // If it was the left half of a split, we don't want to merge with it
+                // TODO: This doesn't quite work...
+                overlappingEdits.includes(priorEdit)
+            ) {
                 // If this edit is immediately after an edit by the same author, merge them
                 this.trace('Merging with prior edit', priorEdit, `${priorEdit.text} -> "${priorEdit.text + text}"`);
                 priorEdit.range = new Span(priorEdit.range.start, replacedSpan.start + text.length);
@@ -165,6 +170,11 @@ export class EditList {
                 this.trace('Inserting at', index);
                 this.edits.splice(index, 0, edit);
 
+                if (priorEdit && priorEdit.range.end === edit.range.start) {
+                    // If this edit is immediately after an edit, connect them
+                    this.trace('Connecting to prior edit');
+                    priorEdit.children.push(edit);
+                }
                 if (subsequentEdit && subsequentEdit.range.start === edit.range.end) {
                     // If this edit is immediately before an edit, connect them
                     this.trace('Connecting to subsequent edit');

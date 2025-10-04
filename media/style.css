@@ -1,10 +1,12 @@
 .author-user  {
     background-color: #D1E7DD;
     color: #0F5132;
+    border: 2px solid #88a799;
 }
 .author-other  {
     background-color: #F8D7DA;
     color: #721C24;
+    border: 2px solid #af8b8f;
 }
 
 #code-container {
