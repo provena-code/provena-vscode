@@ -1,4 +1,4 @@
-import { EditRange, Metadata } from "../shared/edit-data";
+import { EditNode, EditRange, Metadata } from "../shared/edit-data";
 
 export class CodeRenderer {
     private readonly rootElement: HTMLElement;
@@ -7,12 +7,12 @@ export class CodeRenderer {
         this.rootElement = document.getElementById(rootElementId) as HTMLElement;
     }
 
-    public render(editList: EditRange[]) {
+    public render(editList: EditNode[]) {
         const htmlParts = editList.map(edit => this.renderEdit(edit));
         this.rootElement.innerHTML = htmlParts.join('');
     }
 
-    private renderEdit(editRange: EditRange) {
+    private renderEdit(editRange: EditNode) {
         return `<span class="edit-range ${this.getAuthorClass(editRange.metadata.author)}"
         ${this.metadataToHTMLData(editRange.metadata)}>${editRange.text}</span>`;
     }

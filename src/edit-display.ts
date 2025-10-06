@@ -1,6 +1,8 @@
 
 import * as vscode from 'vscode';
 import { EditList } from './edit-list';
+import * as devalue from 'devalue';
+import { EditNode, Span, toPOJO } from './shared/edit-data';
 
 export class EditDisplay {
 
@@ -13,7 +15,11 @@ export class EditDisplay {
 
     public update(editList: EditList) {
         const edits = editList.getEdits();
-        this.panel.webview.postMessage({ type: 'updateEdits', edits });
+        const serializedEdits = devalue.stringify(edits, {
+            EditNode: (node) => node instanceof EditNode && toPOJO(node),
+            Span: (span) => span instanceof Span && toPOJO(span),
+        });
+        this.panel.webview.postMessage({ type: 'updateEdits', edits: serializedEdits });
     }
 
 

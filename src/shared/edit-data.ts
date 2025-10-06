@@ -19,6 +19,10 @@ export function copyEditRange(edit: EditRange): EditRange {
     };
 }
 
+export function toPOJO(obj: any): any {
+    return Object.assign({}, obj);
+}
+
 export class EditNode implements EditRange {
     public readonly children: EditNode[] = [];
 
@@ -26,7 +30,7 @@ export class EditNode implements EditRange {
         public range: Span,
         public text: string,
         public metadata: Metadata
-    ) { 
+    ) {
 
     }
 
