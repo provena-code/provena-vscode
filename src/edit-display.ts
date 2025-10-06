@@ -49,6 +49,7 @@ export class EditDisplay {
             </head>
             <body>
             <div id="root">
+                <div id="graph-container"></div>
                 <div>
                     <pre id="code-container"></pre>
                 </div>

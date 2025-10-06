@@ -18,3 +18,30 @@
     border-radius: 4px;
     overflow-x: auto;
 }
+
+#graph-container {
+    width: 100%;
+    height: 600px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    overflow: auto;
+    margin-top: 20px;
+}
+
+/* dagre-d3 graph styles */
+.node rect {
+  fill: #f0f0f0;       /* interior color */
+  stroke: #333;        /* border color */
+  stroke-width: 1.5px;
+}
+
+.node text {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+}
+
+.edgePath path {
+  stroke: #333;        /* edge line color */
+  stroke-width: 1.5px;
+  fill: none;
+}
