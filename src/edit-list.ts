@@ -18,6 +18,10 @@ export class EditList {
         return this.edits;
     }
 
+    getHeadChildren(): readonly EditNode[] {
+        return this.headChildren;
+    }
+
     isEmpty(): boolean {
         return this.edits.length === 0;
     }

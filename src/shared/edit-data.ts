@@ -23,6 +23,11 @@ export function toPOJO(obj: any): any {
     return Object.assign({}, obj);
 }
 
+type SimplifiedEditNode = {
+    text: string;
+    children: SimplifiedEditNode[];
+}
+
 export class EditNode implements EditRange {
     public readonly children: EditNode[] = [];
 
@@ -42,6 +47,13 @@ export class EditNode implements EditRange {
         );
         copy.children.push(...this.children);
         return copy;
+    }
+
+    toPrintable(): SimplifiedEditNode {
+        return {
+            text: this.text,
+            children: this.children.map(c => c.toPrintable()),
+        }
     }
 }
 
