@@ -23,7 +23,7 @@ export class EditList {
     }
 
     // Use binary search to find the edit at a given position
-    // This method is a bit confusing, since there could be 
+    // This method is a bit confusing, since there could be
     // two edits abutting the position; currently unused
     // findEditAt(position: number): EditNode | undefined {
     //     let low = 0;
@@ -139,19 +139,48 @@ export class EditList {
                 this.trace(`Overlapping edits should be split: contains start ${containsStart}, contains end ${containsEnd}`, edit, replacedSpan);
             }
         }
+
+        this.trace('Removing edits:', containedEdits.map(e => e.text + `${e.range}`).join(', '));
+
+        // Remove contained edits, which are now superseded by this edit
+        if (containedEdits.length > 0) {
+            let before = this.findLastEditBefore(replacedSpan.start);
+            let after = this.findFirstEditAfter(replacedSpan.end);
+            if (after === -1) {
+                after = this.edits.length;
+            }
+
+            if (before !== -1 && after !== this.edits.length) {
+                // If there are edits both before and after the removed edits,
+                // connect them
+                this.edits[before].children.push(this.edits[after]);
+            }
+
+            const expectedLength = after - before - 1;
+            if (expectedLength !== containedEdits.length) {
+                this.trace('Before:', this.toStringWithRanges());
+                this.trace(`Finding edits between ${before} and ${after}, expected ${containedEdits.length}, found ${expectedLength}`);
+                this.trace('Contained edits:', containedEdits.map(e => e.text + `${e.range}`).join(', '));
+                throw new Error('Internal error: mismatch in contained edits');
+            }
+            this.trace('Removing edits:', containedEdits);
+            this.edits.splice(before + 1, expectedLength);
+        }
+
         // We don't have to worry about shifting edits that overlap with
         // the change because they will be removed
         this.shiftEdits(replacedSpan.end, replacedSpan, text);
 
-        this.trace('After splits and shifts:', this.toStringWithRanges());
+        this.trace('After splits, shifts and removals:', this.toStringWithRanges());
 
         if (text.length !== 0) {
             const index = this.findLastEditBefore(replacedSpan.start) + 1;
             const priorEdit = this.edits[index - 1];
             const subsequentEdit = this.edits[index];
-            if (priorEdit && priorEdit.metadata.author === metadata.author && priorEdit.range.end === replacedSpan.start && 
+            if (priorEdit && priorEdit.metadata.author === metadata.author && priorEdit.range.end === replacedSpan.start &&
                 // Make sure that we didn't split any edits with this insertion
-                overlappingEdits.length === 0
+                // Any edit with more than 1 child can't be appended to
+                priorEdit.children.length <= 1
             ) {
                 // If this edit is immediately after an edit by the same author, merge them
                 this.trace('Merging with prior edit', priorEdit, `${priorEdit.text} -> "${priorEdit.text + text}"`);
@@ -181,14 +210,11 @@ export class EditList {
             }
         }
 
-        this.trace('Removing edits:', containedEdits.map(e => e.text + `[${e.range}]`).join(', '));
-        // Remove contained edits, which are now superseded by this edit
-        for (const containedEdit of containedEdits) {
-            const containedIndex = this.edits.indexOf(containedEdit);
-            this.edits.splice(containedIndex, 1);
-        }
-
         // this.defragment();
+
+        if (!this.headChildren.includes(this.edits[0])) {
+            this.headChildren.push(this.edits[0]);
+        }
 
         this.trace('Final edits:', this.toStringWithRanges());
     }
@@ -296,7 +322,7 @@ export class EditList {
         }).join('');
     }
 
-    // TODO: Not sure how I want to copy the nodes 
+    // TODO: Not sure how I want to copy the nodes
     // or if that's even necessary with the new approach
     copy() {
         const newList = new EditList();

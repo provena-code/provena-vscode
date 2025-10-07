@@ -26,15 +26,16 @@ export function activate(context: vscode.ExtensionContext) {
 
 	console.log('start!');
 
-
-	disposables.push(vscode.window.onDidChangeActiveTextEditor(editor => {
-		if (!editor) {
+	let lastActiveDocument: vscode.TextDocument | undefined = undefined;
+	function switchActiveEditor(document: vscode.TextDocument) {
+		if (!document || document === lastActiveDocument) {
 			return;
 		}
-		console.log(`Document changed: ${editor.document.uri.toString()}`);
-		const { editList } = fileDataMap.getFileData(editor.document.uri);
+		console.log(`Document changed: ${document.uri.toString()}`);
+		lastActiveDocument = document;
+		const { editList } = fileDataMap.getFileData(document.uri);
 		if (editList.isEmpty()) {
-			editList.setInitialText(editor.document.getText(), {
+			editList.setInitialText(document.getText(), {
 				author: 'init',
 				startTime: new Date().getTime(),
 				endTime: new Date().getTime(),
@@ -43,6 +44,12 @@ export function activate(context: vscode.ExtensionContext) {
 			// TODO: Ensure that last text == new text
 		}
 		editDisplay.update(editList);
+	}
+
+	disposables.push(vscode.window.onDidChangeActiveTextEditor(editor => {
+		if (editor) {
+			switchActiveEditor(editor.document);
+		}
 	}));
 
 	disposables.push(vscode.workspace.onDidChangeTextDocument(async event => {
@@ -51,6 +58,8 @@ export function activate(context: vscode.ExtensionContext) {
 		console.log(`Reason: ${event.reason}, count: ${event.contentChanges.length}`);
 		let author = 'other';
 		const date = new Date().getTime();
+
+		switchActiveEditor(event.document);
 
 		// if (event.reason === vscode.TextDocumentChangeReason.Undo) {
 		// 	author = 'user';
