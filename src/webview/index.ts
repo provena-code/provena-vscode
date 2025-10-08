@@ -11,7 +11,10 @@ function loadData(editsString: string) {
         EditNode: (obj) => {
             const node = new EditNode(obj.range, obj.text, obj.metadata);
             if (obj.children) {
-                node.children.push(...obj.children);
+                (node as any).children = obj.children;
+            }
+            if (obj.parents) {
+                (node as any).parents = obj.parents;
             }
             return node;
         },

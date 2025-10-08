@@ -22,7 +22,7 @@ export class GraphRenderer {
             return;
         }
         nodes.set(edit, nodes.size);
-        for (const child of edit.children) {
+        for (const child of edit.getChildren()) {
             this.findNodes(child, nodes);
         }
         return nodes;
@@ -51,7 +51,7 @@ export class GraphRenderer {
             const padding = 5;
             const textSize = measureTextSize(text, "10px 'Courier New'");
             g.setNode(index.toString(), { label: text, width: textSize.width + padding * 2, height: textSize.height + padding * 2 });
-            for (const child of edit.children) {
+            for (const child of edit.getChildren()) {
                 const childIndex = allNodes.get(child);
                 if (childIndex !== undefined) {
                     g.setEdge(index.toString(), childIndex.toString());

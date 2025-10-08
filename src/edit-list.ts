@@ -1,6 +1,6 @@
 import { deprecate } from 'node:util';
 import { IChangeEvent } from './recorder-util';
-import { EditRange, Span, Metadata, copyEditRange, EditNode } from './shared/edit-data';
+import { EditRange, Span, Metadata, copyEditRange, EditNode, copyMetadata } from './shared/edit-data';
 
 /**
  * Manages a history of edits with associated metadata from a code file.
@@ -157,7 +157,7 @@ export class EditList {
             if (before !== -1 && after !== this.edits.length) {
                 // If there are edits both before and after the removed edits,
                 // connect them
-                this.edits[before].children.push(this.edits[after]);
+                this.edits[before].addChild(this.edits[after]);
             }
 
             const expectedLength = after - before - 1;
@@ -181,10 +181,15 @@ export class EditList {
             const index = this.findLastEditBefore(replacedSpan.start) + 1;
             const priorEdit = this.edits[index - 1];
             const subsequentEdit = this.edits[index];
+            const nPriorEditChildren = priorEdit?.getChildren().length;
             if (priorEdit && priorEdit.metadata.author === metadata.author && priorEdit.range.end === replacedSpan.start &&
-                // Make sure that we didn't split any edits with this insertion
-                // Any edit with more than 1 child can't be appended to
-                priorEdit.children.length <= 1
+                // We only append if this doesn't delete text and it inserts in an existing gap
+                replacedSpan.start === replacedSpan.end && overlappingEdits.length === 0
+                // // Make sure that we didn't split any edits with this insertion
+                // // Any edit with more than 1 child can't be appended to
+                // nPriorEditChildren <= 1 &&
+                // // If that edit has a child, it should also be active; otherwise we shouldn't add to it
+                // (nPriorEditChildren === 0 || this.edits.includes(priorEdit.getChildren()[0]))
             ) {
                 // If this edit is immediately after an edit by the same author, merge them
                 this.trace('Merging with prior edit', priorEdit, `${priorEdit.text} -> "${priorEdit.text + text}"`);
@@ -204,12 +209,12 @@ export class EditList {
                 if (priorEdit && priorEdit.range.end === edit.range.start) {
                     // If this edit is immediately after an edit, connect them
                     this.trace('Connecting to prior edit');
-                    priorEdit.children.push(edit);
+                    priorEdit.addChild(edit);
                 }
                 if (subsequentEdit && subsequentEdit.range.start === edit.range.end) {
                     // If this edit is immediately before an edit, connect them
                     this.trace('Connecting to subsequent edit');
-                    edit.children.push(subsequentEdit);
+                    edit.addChild(subsequentEdit);
                 }
             }
         }
@@ -244,13 +249,13 @@ export class EditList {
                         endTime: Math.max(current.metadata.endTime, next.metadata.endTime)
                     }
                 );
-                for (const child of current.children) {
+                for (const child of current.getChildren()) {
                     if (child !== next) {
-                        mergedEdit.children.push(child);
+                        mergedEdit.addChild(child);
                     }
                 }
-                for (const child of next.children) {
-                    mergedEdit.children.push(child);
+                for (const child of next.getChildren()) {
+                    mergedEdit.addChild(child);
                 }
                 this.edits.splice(i, 2, mergedEdit);
                 i--; // Recheck at this index
@@ -279,19 +284,24 @@ export class EditList {
         if (splitPosition <= edit.range.start || splitPosition >= edit.range.end) {
             throw new Error(`Invalid split position ${edit.range} at ${splitPosition}`);
         }
+        this.trace(`Splitting edit ${edit.text} at ${splitPosition}`);
 
         const leftEdit: EditNode = new EditNode(
             new Span(edit.range.start, splitPosition),
             edit.text.substring(0, splitPosition - edit.range.start),
-            edit.metadata
+            copyMetadata(edit.metadata)
         );
         const rightEdit: EditNode = new EditNode(
             new Span(splitPosition, edit.range.end),
             edit.text.substring(splitPosition - edit.range.start),
-            edit.metadata
+            copyMetadata(edit.metadata)
         );
-        leftEdit.children.push(rightEdit);
-        rightEdit.children.push(...edit.children);
+        leftEdit.addChild(rightEdit);
+        rightEdit.addChildren(edit.getChildren());
+        edit.getParents().forEach(parent => {
+            parent.addChild(leftEdit);
+        });
+        edit.removeConnections();
         const index = this.edits.indexOf(edit);
         this.edits.splice(index, 1, leftEdit, rightEdit);
         return { leftEdit, rightEdit };

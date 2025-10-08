@@ -76,7 +76,7 @@ const testFiles = [
 
 /**
  * Extracts the edit information between two strings.
- * The strings must differ only by a single edit: 
+ * The strings must differ only by a single edit:
  * some (potentially empty) text replaced by other (potentially empty) text.
  * @param s0 The original string.
  * @param s1 The modified string.
@@ -90,8 +90,12 @@ function extractEdit(s0: string, s1: string): IChangeEvent {
     }
   }
   let replacedEnd = s0.length - 1;
-  for (; replacedEnd >= replacedStart && replacedEnd >= 0 && replacedEnd < s1.length; replacedEnd--) {
-    if (s0[replacedEnd] !== s1[replacedEnd + (s1.length - s0.length)]) {
+  for (; replacedEnd >= replacedStart; replacedEnd--) {
+    let s1Index = replacedEnd + (s1.length - s0.length);
+    if (s1Index === 0) {
+      break;
+    }
+    if (s0[replacedEnd] !== s1[s1Index]) {
       break;
     }
   }
@@ -137,26 +141,28 @@ function createEditList(startText: string, edits: IChangeEvent[], silently: bool
   return editList;
 }
 
-function countEdges(editList: EditList, from: string, to: string): number {
-  const headChildren = editList.getHeadChildren();
-  let count = 0;
-  for (const headChild of headChildren) {
-    count += countEdgesRecursive(headChild, from, to);
-  }
-  return count;
+function countEdges(editList: EditList, from: string, to: string) {
+  const edges = getEdges(editList, from, to);
+  return edges.length;
 }
 
-function countEdgesRecursive(node: EditNode, from: string, to: string): number {
-  let count = 0;
-  if (node.text === from) {
-    for (const child of node.children) {
-      if (child.text === to) {
-        count++;
-      }
-      count += countEdgesRecursive(child, from, to);
-    }
+function getEdges(editList: EditList, from: string, to: string) {
+  const headChildren = editList.getHeadChildren();
+  let edges = [] as [EditNode, EditNode][];
+  for (const headChild of headChildren) {
+    getEdgesRecursive(headChild, from, to, edges);
   }
-  return count;
+  return edges;
+}
+
+function getEdgesRecursive(node: EditNode, from: string, to: string, edges: [EditNode, EditNode][]) {
+  for (const child of node.getChildren()) {
+    if (node.text === from && child.text === to) {
+      edges.push([node, child]);
+    }
+    getEdgesRecursive(child, from, to, edges);
+  }
+  return edges;
 }
 
 describe('Extract Edits', () => {
@@ -172,6 +178,20 @@ describe('Extract Edits', () => {
     edits.forEach(e => console.log(e));
     const editList = createEditList(texts[0], edits, false);
 
+    assert.equal(editList.toPlainText(), texts[texts.length - 1]);
+  });
+  it('handles internal deletions', () => {
+    const texts = [
+      'Hello World',
+      'Hello ld',
+    ];
+    const edits = extractEdits(texts);
+    assert.equal(edits.length, 1);
+    const edit = edits[0];
+    assert.equal(edit.rangeOffset, 6);
+    assert.equal(edit.rangeLength, 3);
+    assert.equal(edit.text, '');
+    const editList = createEditList(texts[0], edits, false);
     assert.equal(editList.toPlainText(), texts[texts.length - 1]);
   });
 });
@@ -192,11 +212,35 @@ describe('Edit List', () => {
       'Hello ld',
     ];
     const edits = extractEdits(texts);
-    const editList = createEditList(texts[0], edits, true);
-    console.log((editList.getEdits()[0] as EditNode).toPrintable());
+    const editList = createEditList(texts[0], edits, false);
+    console.dir((editList.getEdits()[0] as EditNode).toPrintable(), { depth: 5 });
 
-    assert.equal(countEdges(editList, 'Hello ', 'ld'), 1);
-    assert.equal(countEdges(editList, 'Hello ', 'World'), 1);
+    let e1, e2, e3;
+    assert.equal((e1 = getEdges(editList, 'Hello ', 'ld')).length, 1);
+    assert.equal((e2 = getEdges(editList, 'Hello ', 'Wor')).length, 1);
+    assert.equal((e3 = getEdges(editList, 'Wor', 'ld')).length, 1);
 
+    assert.strictEqual(e1[0][1], e3[0][1]);
+    assert.strictEqual(e1[0][0], e2[0][0]);
+    assert.strictEqual(e2[0][1], e3[0][0]);
+  });
+
+  it('should handle insertions', () => {
+    const texts = [
+      'Hello World',
+      'Hello cruel World',
+    ];
+    const edits = extractEdits(texts);
+    const editList = createEditList(texts[0], edits, false);
+    console.dir((editList.getEdits()[0] as EditNode).toPrintable(), { depth: 5 });
+
+    let e1, e2, e3;
+    assert.equal((e1 = getEdges(editList, 'Hello ', 'World')).length, 1);
+    assert.equal((e2 = getEdges(editList, 'Hello ', 'cruel ')).length, 1);
+    assert.equal((e3 = getEdges(editList, 'cruel ', 'World')).length, 1);
+
+    assert.strictEqual(e1[0][1], e3[0][1]);
+    assert.strictEqual(e1[0][0], e2[0][0]);
+    assert.strictEqual(e2[0][1], e3[0][0]);
   });
 });

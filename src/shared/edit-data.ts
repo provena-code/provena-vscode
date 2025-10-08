@@ -5,6 +5,11 @@ export type Metadata = {
     endTime: number;
 }
 
+export function copyMetadata(metadata: Metadata): Metadata {
+    // May be more complex at some point
+    return { ...metadata };
+}
+
 export interface EditRange {
     range: Span;
     text: string;
@@ -29,7 +34,8 @@ type SimplifiedEditNode = {
 }
 
 export class EditNode implements EditRange {
-    public readonly children: EditNode[] = [];
+    private readonly children: EditNode[] = [];
+    private readonly parents: EditNode[] = [];
 
     constructor(
         public range: Span,
@@ -37,6 +43,40 @@ export class EditNode implements EditRange {
         public metadata: Metadata
     ) {
 
+    }
+
+    getChildren(): readonly EditNode[] {
+        return this.children;
+    }
+
+    getParents(): readonly EditNode[] {
+        return this.parents;
+    }
+
+    addChildren(children: readonly EditNode[]) {
+        children.forEach(child => this.addChild(child));
+    }
+
+    addChild(child: EditNode) {
+        this.children.push(child);
+        child.parents.push(this);
+    }
+
+    removeConnections() {
+        this.parents.forEach(parent => {
+            const index = parent.children.indexOf(this);
+            if (index !== -1) {
+                parent.children.splice(index, 1);
+            }
+        });
+        this.children.forEach(child => {
+            const index = child.parents.indexOf(this);
+            if (index !== -1) {
+                child.parents.splice(index, 1);
+            }
+        });
+        this.parents.length = 0;
+        this.children.length = 0;
     }
 
     shallowCopy(): EditNode {
