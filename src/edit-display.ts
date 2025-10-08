@@ -16,7 +16,10 @@ export class EditDisplay {
     public update(editList: EditList) {
         const edits = editList.getEdits();
         const serializedEdits = devalue.stringify(edits, {
-            EditNode: (node) => node instanceof EditNode && toPOJO(node),
+            EditNode: (node) => node instanceof EditNode && {
+                ...node,
+                parents: undefined, // don't serialize parents to avoid cycles
+            },
             Span: (span) => span instanceof Span && toPOJO(span),
         });
         this.panel.webview.postMessage({ type: 'updateEdits', edits: serializedEdits });
