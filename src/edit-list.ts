@@ -207,6 +207,13 @@ export class EditList {
                 priorEdit.text += text;
                 priorEdit.metadata.endTime = metadata.endTime;
 
+                for (const edge of priorEdit.getOutEdges()) {
+                    // Only update the active edge
+                    if (edge.child === subsequentEdit) {
+                        edge.textIndices.push(priorEdit.text.length);
+                    }
+                }
+
                 // No need to connect to subsequent edit; split would have already done so
             } else {
                 // Otherwise, insert a new edit
@@ -290,6 +297,7 @@ export class EditList {
     //     return rangeLines.join('\n');
     // }
 
+    // TODO: Handle internally: update edges indices on split
     private splitEdit(edit: EditNode, splitPosition: number) {
         if (splitPosition <= edit.range.start || splitPosition >= edit.range.end) {
             throw new Error(`Invalid split position ${edit.range} at ${splitPosition}`);

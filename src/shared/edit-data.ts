@@ -30,11 +30,21 @@ export function toPOJO(obj: any): any {
 
 type SimplifiedEditNode = {
     text: string;
-    children: SimplifiedEditNode[];
+    children: { textIndices: number[]; child: SimplifiedEditNode }[];
+}
+
+type EditEdge = {
+    /**
+     * The lengths of the parent node's text after which the child node could come.
+     * For example, if the parent is "Hello", and the indices are [2, 3, 4], then this edge represents
+     * edges from "He", "Hel", and "Hell" to the child node.
+     */
+    textIndices: number[];
+    child: EditNode;
 }
 
 export class EditNode implements EditRange {
-    private readonly children: EditNode[] = [];
+    private readonly outEdges: EditEdge[] = [];
     private readonly parents: EditNode[] = [];
 
     constructor(
@@ -46,7 +56,11 @@ export class EditNode implements EditRange {
     }
 
     getChildren(): readonly EditNode[] {
-        return this.children;
+        return this.outEdges.map(edge => edge.child);
+    }
+
+    getOutEdges(): readonly EditEdge[] {
+        return this.outEdges;
     }
 
     getParents(): readonly EditNode[] {
@@ -58,25 +72,38 @@ export class EditNode implements EditRange {
     }
 
     addChild(child: EditNode) {
-        this.children.push(child);
+        this.outEdges.push({
+            textIndices: [this.text.length],
+            child
+        });
         child.parents.push(this);
+    }
+
+    removeChild(child: EditNode, removeFromParents = true) {
+        const edgeIndex = this.outEdges.findIndex(edge => edge.child === child);
+        if (edgeIndex !== -1) {
+            this.outEdges.splice(edgeIndex, 1);
+            if (removeFromParents) {
+                const parentIndex = child.parents.indexOf(this);
+                if (parentIndex !== -1) {
+                    child.parents.splice(parentIndex, 1);
+                }
+            }
+        }
     }
 
     removeConnections() {
         this.parents.forEach(parent => {
-            const index = parent.children.indexOf(this);
-            if (index !== -1) {
-                parent.children.splice(index, 1);
-            }
+            parent.removeChild(this, false);
         });
-        this.children.forEach(child => {
-            const index = child.parents.indexOf(this);
+        this.outEdges.forEach(edge => {
+            const index = edge.child.parents.indexOf(this);
             if (index !== -1) {
-                child.parents.splice(index, 1);
+                edge.child.parents.splice(index, 1);
             }
         });
         this.parents.length = 0;
-        this.children.length = 0;
+        this.outEdges.length = 0;
     }
 
     shallowCopy(): EditNode {
@@ -85,8 +112,27 @@ export class EditNode implements EditRange {
             this.text,
             { ...this.metadata }
         );
-        copy.children.push(...this.children);
+        copy.outEdges.push(...this.outEdges);
         return copy;
+    }
+
+    private searchEdges(query: string, nQueryIndex: number, nNodeIndex: number, startNodeIndex: number): QueryMatch | null {
+        // We matched all of this node, but not the whole query,
+        // so continue the search in each of the children
+        for (const edge of this.outEdges) {
+            if (!edge.textIndices.includes(nNodeIndex)) {
+                continue;
+            }
+            const match = edge.child.search(query, nQueryIndex, 0);
+            if (match) {
+                match.unshift({
+                    node: this,
+                    range: new Span(startNodeIndex, nNodeIndex - 1)
+                });
+                return match;
+            }
+        }
+        return null;
     }
 
     search(query: string, queryIndex: number, nodeIndex: number): QueryMatch | null {
@@ -103,6 +149,11 @@ export class EditNode implements EditRange {
                 && query.charAt(nQueryIndex) === this.text.charAt(nNodeIndex)) {
                 nQueryIndex++;
                 nNodeIndex++;
+
+                const match = this.searchEdges(query, nQueryIndex, nNodeIndex, startNodeIndex);
+                if (match) {
+                    return match;
+                }
             }
             // We've matched the entire query, so we have a match!
             if (nQueryIndex === query.length) {
@@ -115,22 +166,15 @@ export class EditNode implements EditRange {
             if (nNodeIndex < this.text.length) {
                 continue;
             }
-            // We matched all of this node, but not the whole query,
-            // so continue the search in each of the children
-            for (const child of this.children) {
-                const match = child.search(query, nQueryIndex, 0);
-                if (match) {
-                    match.unshift({
-                        node: this,
-                        range: new Span(startNodeIndex, nNodeIndex - 1)
-                    });
-                    return match;
-                }
+
+            const match = this.searchEdges(query, nQueryIndex, nNodeIndex, startNodeIndex);
+            if (match) {
+                return match;
             }
         }
         // The query doesn't match this node, so try the children
-        for (const child of this.children) {
-            const match = child.search(query, queryIndex, 0);
+        for (const edge of this.outEdges) {
+            const match = edge.child.search(query, queryIndex, 0);
             if (match) {
                 return match;
             }
@@ -141,7 +185,7 @@ export class EditNode implements EditRange {
     toPrintable(): SimplifiedEditNode {
         return {
             text: this.text,
-            children: this.children.map(c => c.toPrintable()),
+            children: this.outEdges.map(c => ({ textIndices: c.textIndices, child: c.child.toPrintable() })),
         };
     }
 }
