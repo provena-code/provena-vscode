@@ -215,6 +215,9 @@ function testHistorySearch(changes: string[], additionalSearchTexts: string[] = 
   for (let i = 0; i < changes.length; i++) {
     const searchText = changes[i];
     const match = editList.query(searchText);
+    if (!match) {
+      console.log(`Failed to find match for history item ${i}: \n${searchText.replace(/\n/g, '\\n').replace(/\r/g, '\\r')}`);
+    }
     expect(match).not.toBeNull();
   }
   for (const searchText of additionalSearchTexts) {
@@ -249,6 +252,19 @@ describe('Edit List', () => {
   it('should handle insertions in history search', () => {
     const texts = [
       'Hello World',
+      'Hello cruel World',
+    ];
+    testHistorySearch(texts);
+  });
+
+    it('should handle appends in history search', () => {
+    const texts = [
+      'Hello World',
+      'Hello cWorld',
+      'Hello crWorld',
+      'Hello cruWorld',
+      'Hello crueWorld',
+      'Hello cruelWorld',
       'Hello cruel World',
     ];
     testHistorySearch(texts);
