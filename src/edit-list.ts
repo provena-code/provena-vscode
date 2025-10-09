@@ -247,6 +247,8 @@ export class EditList {
 
     // Not needed, since we append to existing edits, and we don't actually
     // want to heal splits in the graph
+    // Could actually be useful now that we have edge indices edits, could be moreso if
+    // we also have edge indices to the child
     private defragment() {
         for (let i = 0; i < this.edits.length - 1; i++) {
             const current = this.edits[i];
@@ -280,48 +282,17 @@ export class EditList {
         }
     }
 
-    // private getSubstringFromEdit(edit: EditRange, range: vscode.Range): string {
-    //     if (!edit.range.contains(range)) {
-    //         throw new Error(`Range ${rangeToString(range)} is not contained in edit range ${rangeToString(edit.range)}`);
-    //     }
-    //     if (edit.range.isEmpty) {
-    //         return '';
-    //     }
-    //     if (range.end.line === edit.range.start.line) {
-    //         return edit.text.substring(range.start.character - edit.range.start.character, range.end.character - edit.range.start.character);
-    //     }
-    //     const lines = edit.text.split('\n');
-    //     const rangeLines = lines.slice(range.start.line - edit.range.start.line, range.end.line - edit.range.start.line + 1);
-    //     rangeLines[rangeLines.length - 1] = rangeLines[rangeLines.length - 1].substring(0, range.end.character);
-    //     rangeLines[0] = rangeLines[0].substring(range.start.character);
-    //     return rangeLines.join('\n');
-    // }
-
-    // TODO: Handle internally: update edges indices on split
     private splitEdit(edit: EditNode, splitPosition: number) {
-        if (splitPosition <= edit.range.start || splitPosition >= edit.range.end) {
-            throw new Error(`Invalid split position ${edit.range} at ${splitPosition}`);
-        }
         this.trace(`Splitting edit ${edit.text} at ${splitPosition}`);
 
-        const leftEdit: EditNode = new EditNode(
-            new Span(edit.range.start, splitPosition),
-            edit.text.substring(0, splitPosition - edit.range.start),
-            copyMetadata(edit.metadata)
-        );
-        const rightEdit: EditNode = new EditNode(
-            new Span(splitPosition, edit.range.end),
-            edit.text.substring(splitPosition - edit.range.start),
-            copyMetadata(edit.metadata)
-        );
-        leftEdit.addChild(rightEdit);
-        rightEdit.addChildren(edit.getChildren());
-        edit.getParents().forEach(parent => {
-            parent.addChild(leftEdit);
-        });
-        edit.removeConnections();
+        const { leftEdit, rightEdit } = edit.splitAndRemove(splitPosition);
+
         const index = this.edits.indexOf(edit);
         this.edits.splice(index, 1, leftEdit, rightEdit);
+        const headIndex = this.headChildren.indexOf(edit);
+        if (headIndex !== -1) {
+            this.headChildren.splice(headIndex, 1, leftEdit);
+        }
         return { leftEdit, rightEdit };
     }
 

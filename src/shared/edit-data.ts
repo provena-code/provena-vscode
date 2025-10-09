@@ -106,6 +106,45 @@ export class EditNode implements EditRange {
         this.outEdges.length = 0;
     }
 
+    splitAndRemove(splitPosition: number): { leftEdit: EditNode; rightEdit: EditNode } {
+        if (splitPosition <= this.range.start || splitPosition >= this.range.end) {
+            throw new Error(`Invalid split position ${this.range} at ${splitPosition}`);
+        }
+
+        const leftEdit: EditNode = new EditNode(
+            new Span(this.range.start, splitPosition),
+            this.text.substring(0, splitPosition - this.range.start),
+            copyMetadata(this.metadata)
+        );
+        const rightEdit: EditNode = new EditNode(
+            new Span(splitPosition, this.range.end),
+            this.text.substring(splitPosition - this.range.start),
+            copyMetadata(this.metadata)
+        );
+
+        rightEdit.addChildren(this.getChildren());
+        for (const edge of this.getOutEdges()) {
+            const leftIndices = edge.textIndices.filter(index => index <= leftEdit.text.length);
+            const rightIndices = edge.textIndices.filter(index => index > leftEdit.text.length)
+                .map(index => index - leftEdit.text.length);
+            if (leftIndices.length > 0) {
+                leftEdit.outEdges.push({ textIndices: leftIndices, child: edge.child });
+            }
+            if (rightIndices.length > 0) {
+                rightEdit.outEdges.push({ textIndices: rightIndices, child: edge.child });
+            }
+        }
+        leftEdit.addChild(rightEdit);
+
+        this.getParents().forEach(parent => {
+            parent.addChild(leftEdit);
+        });
+
+        this.removeConnections();
+
+        return { leftEdit, rightEdit };
+    }
+
     shallowCopy(): EditNode {
         const copy = new EditNode(
             this.range.copy(),

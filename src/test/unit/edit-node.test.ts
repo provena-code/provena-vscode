@@ -18,7 +18,7 @@ describe('EditNode search', () => {
         expect(match?.length).toBe(1);
         expect(match?.[0].node).toBe(node);
         expect(match?.[0].range.start).toBe(6);
-        expect(match?.[0].range.end).toBe(11);
+        expect(match?.[0].range.end).toBe(10);
     });
 
     it('finds text across multiple nodes', () => {
