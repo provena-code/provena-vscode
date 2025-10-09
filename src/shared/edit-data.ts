@@ -89,13 +89,67 @@ export class EditNode implements EditRange {
         return copy;
     }
 
+    search(query: string, queryIndex: number, nodeIndex: number): QueryMatch | null {
+        if (query.length === 0) {
+            throw new Error('Query cannot be empty');
+        }
+        for (; nodeIndex < this.text.length; nodeIndex++) {
+            let nQueryIndex = queryIndex;
+            let nNodeIndex = nodeIndex;
+            const startNodeIndex = nNodeIndex;
+            // TODO: In theory could use rabin-karp hasing or similar to speed this up
+            // TODO: Will ultimately stop early when we use indexing within the parent
+            while (nQueryIndex < query.length && nNodeIndex < this.text.length
+                && query.charAt(nQueryIndex) === this.text.charAt(nNodeIndex)) {
+                nQueryIndex++;
+                nNodeIndex++;
+            }
+            // We've matched the entire query, so we have a match!
+            if (nQueryIndex === query.length) {
+                return [{
+                    node: this,
+                    range: new Span(startNodeIndex, Math.min(nNodeIndex - 1, this.text.length - 1))
+                }];
+            }
+            // We didn't find a full match starting at this index
+            if (nNodeIndex < this.text.length) {
+                continue;
+            }
+            // We matched all of this node, but not the whole query,
+            // so continue the search in each of the children
+            for (const child of this.children) {
+                const match = child.search(query, nQueryIndex, 0);
+                if (match) {
+                    match.unshift({
+                        node: this,
+                        range: new Span(startNodeIndex, nNodeIndex - 1)
+                    });
+                    return match;
+                }
+            }
+        }
+        // The query doesn't match this node, so try the children
+        for (const child of this.children) {
+            const match = child.search(query, queryIndex, 0);
+            if (match) {
+                return match;
+            }
+        }
+        return null;
+    }
+
     toPrintable(): SimplifiedEditNode {
         return {
             text: this.text,
             children: this.children.map(c => c.toPrintable()),
-        }
+        };
     }
 }
+
+export type QueryMatch = {
+    node: EditNode;
+    range: Span;
+}[];
 
 export class Span {
     constructor(public readonly start: number, public readonly end: number) {
