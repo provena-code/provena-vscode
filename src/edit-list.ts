@@ -1,6 +1,6 @@
 import { deprecate } from 'node:util';
 import { IChangeEvent } from './recorder-util';
-import { EditRange, Span, Metadata, copyEditRange, EditNode, copyMetadata } from './shared/edit-data';
+import { EditRange, Span, Metadata, copyEditRange, EditNode, copyMetadata, QueryMatch } from './shared/edit-data';
 
 /**
  * Manages a history of edits with associated metadata from a code file.
@@ -20,6 +20,16 @@ export class EditList {
 
     getHeadChildren(): readonly EditNode[] {
         return this.headChildren;
+    }
+
+    query(text: string): QueryMatch | null {
+        for (const headChild of this.headChildren) {
+            const match = headChild.search(text, 0, 0);
+            if (match) {
+                return match;
+            }
+        }
+        return null;
     }
 
     isEmpty(): boolean {

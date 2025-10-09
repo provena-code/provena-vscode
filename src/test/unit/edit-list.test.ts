@@ -26,12 +26,13 @@ function readTestFile(name: string): EventLog[] {
   return JSON.parse(content); // Validate JSON
 }
 
-function testFile(name: string) {
+function testFile(name: string, checkReproduction: boolean, checkHistorySearch: boolean) {
   const data = readTestFile(name);
   const editList = new EditList();
   editList.trace = (...args: any[]) => { console.log(...args); };
   console.log(`Testing file ${name} with ${data.length} events`);
   let firstEvent = true;
+  let textHistory = [];
   data.forEach(event => {
     if (firstEvent) {
       editList.setInitialText(event.documentText, {
@@ -40,6 +41,7 @@ function testFile(name: string) {
         endTime: event.time,
       });
       firstEvent = false;
+      textHistory.push(event.documentText);
       return;
     }
     event.contentChanges.forEach(change => {
@@ -65,7 +67,18 @@ function testFile(name: string) {
     });
     const editText = normalizeLineEndings(editList.toPlainText());
     const documentText = normalizeLineEndings(event.documentText);
-    expect(editText).toMatch(documentText);
+    if (checkReproduction) {
+      expect(editText).toMatch(documentText);
+    }
+    textHistory.push(event.documentText);
+    if (checkHistorySearch) {
+      for (let i = 0; i < textHistory.length; i++) {
+        const history = textHistory[i];
+        console.log(`Searching for history item ${i}: ${history.replace(/\n/g, '\\n').replace(/\r/g, '\\r')}`);
+        const match = editList.query(history);
+        expect(match).not.toBeNull();
+      }
+    }
   });
 }
 
@@ -196,14 +209,49 @@ describe('Extract Edits', () => {
   });
 });
 
+function testHistorySearch(changes: string[], additionalSearchTexts: string[] = []) {
+  const edits = extractEdits(changes);
+  const editList = createEditList(changes[0], edits, false);
+  for (let i = 0; i < changes.length; i++) {
+    const searchText = changes[i];
+    const match = editList.query(searchText);
+    expect(match).not.toBeNull();
+  }
+  for (const searchText of additionalSearchTexts) {
+    const match = editList.query(searchText);
+    expect(match).not.toBeNull();
+  }
+}
+
 
 describe('Edit List', () => {
   it('should reproduce test1', () => {
-    testFile('test1.log');
+    testFile('test1.log', true, false);
   });
   it('should reproduce test2', () => {
-    console.log("!!!")
-    testFile('test2.log');
+    testFile('test2.log', true, false);
+  });
+  it('should match history for test1', () => {
+    testFile('test1.log', false, true);
+  });
+  it('should match history for test2', () => {
+    testFile('test2.log', false, true);
+  });
+
+  it('should handle deletions in history search', () => {
+    const texts = [
+      'Hello World',
+      'Hello ld',
+    ];
+    testHistorySearch(texts);
+  });
+
+  it('should handle insertions in history search', () => {
+    const texts = [
+      'Hello World',
+      'Hello cruel World',
+    ];
+    testHistorySearch(texts);
   });
 
   it('should handle deletions', () => {
