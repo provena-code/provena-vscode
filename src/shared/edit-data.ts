@@ -189,9 +189,12 @@ export class EditNode implements EditRange {
                 nQueryIndex++;
                 nNodeIndex++;
 
-                const match = this.searchEdges(query, nQueryIndex, nNodeIndex, startNodeIndex);
-                if (match) {
-                    return match;
+                // If we're ready to break out of the loop, skip checking children
+                if (nQueryIndex < query.length && nNodeIndex < this.text.length) {
+                    const match = this.searchEdges(query, nQueryIndex, nNodeIndex, startNodeIndex);
+                    if (match) {
+                        return match;
+                    }
                 }
             }
             // We've matched the entire query, so we have a match!
