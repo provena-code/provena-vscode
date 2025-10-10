@@ -98,7 +98,7 @@ export function activate(context: vscode.ExtensionContext) {
 				startTime: date,
 				endTime: date,
 			};
-			editList.addEdit(change, metadata);
+			editList.addEdit(change, metadata, isUndoOrRedo);
 			// console.log(`Document changed: ${change.text}, range: ${rangeToString(change.range)}, rangeLength: ${change.rangeLength}`);
 		});
 		editDisplay.update(editList);

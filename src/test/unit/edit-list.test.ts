@@ -363,7 +363,18 @@ describe('Edit List', () => {
     assert.strictEqual(e2[0][1], e3[0][0]);
   });
 
-  it('should handle undo/redo', () => {
+  it('should handle very simple undo/redo', () => {
+    const texts = [
+      { text: 'abc', isUndoRedo: false, author: 'a1' },
+      { text: 'ac', isUndoRedo: false, author: 'a2' },
+      { text: 'abc', isUndoRedo: true, author: 'a2' },
+    ] as EditDef[];
+    const editList = createEditList(texts, false);
+    expect(editList.toPlainText()).toEqual(texts[texts.length - 1].text);
+    expect(editList.getAuthors(new Span(0, 2), false)).toEqual(new Set(['a1']));
+  });
+
+  it('should handle more complex undo/redo', () => {
     const texts = [
       { text: 'Hello World', isUndoRedo: false, author: 'a1' },
       { text: 'Hello this cruel World', isUndoRedo: false, author: 'a2' },
@@ -378,6 +389,69 @@ describe('Edit List', () => {
     expect(editList.getAuthors(new Span(7, 10), false)).toEqual(new Set(['a2']));
     expect(editList.getAuthors(new Span(11, 15), false)).toEqual(new Set(['a3']));
     expect(editList.getAuthors(new Span(17, 21), false)).toEqual(new Set(['a1']));
+  });
+
+  it('should handle undoing a deletion with multiple authors', () => {
+    const texts = [
+      { text: 'One Two Four Five', isUndoRedo: false, author: 'a1' },
+      { text: 'One Two Three Four Five', isUndoRedo: false, author: 'a2' },
+      { text: 'One Five', isUndoRedo: false, author: 'a3' },
+      { text: 'One Two Three Four Five', isUndoRedo: true, author: 'a4' },
+    ] as EditDef[];
+    const editList = createEditList(texts, false);
+    expect(editList.toPlainText()).toEqual(texts[texts.length - 1].text);
+    const wordRanges = [];
+    let length = 0;
+    for (const word of texts[texts.length - 1].text.split(' ')) {
+      wordRanges.push(new Span(length, length + word.length));
+      length += word.length + 1;
+    }
+    console.log(editList.toString());
+
+    expect(editList.getAuthors(wordRanges[0], false)).toEqual(new Set(['a1']));
+    expect(editList.getAuthors(wordRanges[1], false)).toEqual(new Set(['a1']));
+    expect(editList.getAuthors(wordRanges[2], false)).toEqual(new Set(['a2']));
+    expect(editList.getAuthors(wordRanges[3], false)).toEqual(new Set(['a1']));
+    expect(editList.getAuthors(wordRanges[4], false)).toEqual(new Set(['a1']));
+  });
+
+  it('should correctly attribute testUndo.log', () => {
+    const logs = readTestFile('testUndo.log');
+    const editList = new EditList();
+    editList.trace = (...args: any[]) => { console.log(...args); };
+    let firstEvent = true;
+
+    // TODO: Refactor to combine with testFile()
+    logs.forEach((event, i) => {
+      if (firstEvent) {
+        editList.setInitialText(event.documentText, {
+          author: 'initial',
+          startTime: event.time,
+          endTime: event.time,
+        });
+        firstEvent = false;
+        return;
+      }
+      for (const change of event.contentChanges) {
+        const realRange = change.range as any as RangeJson;
+        const realChangeEvent = {
+          range: new Range(
+            new Position(realRange[0].line, realRange[0].character),
+            new Position(realRange[1].line, realRange[1].character)
+          ),
+          rangeLength: change.rangeLength,
+          rangeOffset: change.rangeOffset,
+          text: change.text,
+        } as IChangeEvent;
+        editList.addEdit(realChangeEvent, {
+          author: 'user',
+          startTime: event.time,
+          endTime: event.time,
+        }, i === 4);
+      }
+    });
+
+    expect(editList.getAuthors(new Span(0, 6), false)).toEqual(new Set(['initial']));
   });
 
 });

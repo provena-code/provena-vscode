@@ -131,7 +131,6 @@ export class EditList {
     addEdit(changeEvent: IChangeEvent, metadata: Metadata, isUndoOrRedo = false) {
         this.trace('Current edits:', this.toStringWithRanges());
 
-        // TODO: What do we do with rangeOffset?
         const { text, rangeLength, rangeOffset } = changeEvent;
         const replacedSpan = new Span(rangeOffset, rangeLength + rangeOffset);
         this.trace(`Adding edit: "${text}" at ${replacedSpan}`);
@@ -270,6 +269,11 @@ export class EditList {
         if (!isUndoOrRedo) {
             return null;
         }
+        // TODO: This should really be searching the children only, and it should only search from the very
+        // very beginning of these nodes and children, etc. We need a parameter that searches strictly from
+        // the beginning of the node and subsequent children.
+        // Also we should be mindful that the search start with nodes most recently added in the timeline of
+        // the undo/redo.
         const matchPath = priorEdit.search(text, 0, 0);
         if (!matchPath) {
             console.error('Internal error: undo/redo edit not found in subsequent edit');

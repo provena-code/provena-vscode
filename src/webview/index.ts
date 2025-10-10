@@ -10,9 +10,9 @@ function loadData(editsString: string) {
     const edits: EditNode[] = devalue.parse(editsString, {
         EditNode: (obj) => {
             const node = new EditNode(obj.range, obj.text, obj.metadata);
-            if (obj.children) {
-                console.log('Children', obj.children);
-                (node as any).children = obj.children;
+            if (obj.outEdges) {
+                console.log('OutEdges', obj.outEdges);
+                (node as any).outEdges = obj.outEdges;
             }
             if (obj.parents) {
                 (node as any).parents = obj.parents;
