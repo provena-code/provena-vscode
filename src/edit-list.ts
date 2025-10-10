@@ -52,20 +52,36 @@ export class EditList {
     //     return undefined;
     // }
 
-    findEditsWithinRange(range: Span): EditNode[] {
+    public findEditsWithinRange(span: Span, proper = true): EditNode[] {
         const result: EditNode[] = [];
-        let lastBefore = this.findLastEditBefore(range.start);
+        let lastBefore = this.findLastEditBefore(span.start);
         for (let i = lastBefore + 1; i < this.edits.length; i++) {
             // Ignore edits that abut but do not overlap
-            if (this.edits[i].range.end <= range.start) {
+            const editRange = this.edits[i].range;
+            let lowerBound = span.start;
+            let upperBound = span.end;
+            if (proper) {
+                lowerBound += 1;
+                upperBound -= 1;
+            }
+            if (editRange.end < lowerBound) {
                 continue;
             }
-            if (this.edits[i].range.start >= range.end) {
+            if (editRange.start > upperBound) {
                 break;
             }
             result.push(this.edits[i]);
         }
         return result;
+    }
+
+    public getAuthors(span: Span, proper: boolean): Set<string> {
+        const authors = new Set<string>();
+        const edits = this.findEditsWithinRange(span, proper);
+        for (const edit of edits) {
+            authors.add(edit.metadata.author);
+        }
+        return authors;
     }
 
     private findLastEditBefore(position: number): number {
@@ -110,6 +126,18 @@ export class EditList {
         const child = new EditNode(range, text, metadata);
         this.edits.push(child);
         this.headChildren.push(child);
+    }
+
+    addUndoOrRedo(changeEvent: IChangeEvent, metadata: Metadata) {
+        if (changeEvent.text.length === 0) {
+            // Deletions don't change the edit graph meaningfully
+            // (they may split nodes while retaining the same text)
+            // so we can treat them like any other edit.
+            this.addEdit(changeEvent, metadata);
+            return;
+        }
+        // TEMP
+        this.addEdit(changeEvent, metadata);
     }
 
     addEdit(changeEvent: IChangeEvent, metadata: Metadata) {

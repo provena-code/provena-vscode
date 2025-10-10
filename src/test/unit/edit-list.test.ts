@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { EditList } from '../../edit-list';
 import { EventLog, IChangeEvent } from '../../recorder-util';
 import { Range, Position } from './vs-code-mock';
-import { EditNode } from '../../shared/edit-data';
+import { EditNode, Span } from '../../shared/edit-data';
 
 type PositionJson = {
     line: number;
@@ -105,7 +105,7 @@ function extractEdit(s0: string, s1: string): IChangeEvent {
   let replacedEnd = s0.length - 1;
   for (; replacedEnd >= replacedStart; replacedEnd--) {
     let s1Index = replacedEnd + (s1.length - s0.length);
-    if (s1Index === 0) {
+    if (s1Index === 0 || s1Index < replacedStart) {
       break;
     }
     if (s0[replacedEnd] !== s1[s1Index]) {
@@ -124,7 +124,50 @@ function extractEdit(s0: string, s1: string): IChangeEvent {
   };
 }
 
-function extractEdits(texts: string[]): IChangeEvent[] {
+type EditDef = {
+  text: string;
+  isUndoRedo?: boolean;
+  author?: string;
+}
+type EditDefInput = string | EditDef;
+
+function createEditList(textDefs: EditDefInput[], silently: boolean): EditList {
+
+  // Remove undo/redo markers from texts
+  const texts = textDefs.map(t => t instanceof Object ? t.text : t);
+  const editDefs = textDefs.map(t => t instanceof Object ? t : { text: t });
+
+  var edits = extractEdits(texts);
+
+  const editList = new EditList();
+  if (!silently) {
+    editList.trace = (...args: any[]) => { console.log(...args); };
+  }
+
+  const initialMetadata = createGenericMetadata();
+  if (editDefs[0].author) {
+    initialMetadata.author = editDefs[0].author;
+  }
+  editList.setInitialText(texts[0], initialMetadata);
+
+  edits.forEach((edit, i) => {
+    const editDef = editDefs[i + 1];
+    const metadata = createGenericMetadata();
+    if (editDef.author) {
+      metadata.author = editDef.author;
+    }
+    console.log('------------------------- Adding Edit -------------------------');
+    console.log(edit);
+    if (editDef.isUndoRedo) {
+      editList.addUndoOrRedo(edit, metadata);
+    } else {
+      editList.addEdit(edit, metadata);
+    }
+  });
+  return editList;
+}
+
+function extractEdits(texts: string[]) {
   const edits: IChangeEvent[] = [];
   for (let i = 0; i < texts.length - 1; i++) {
     const edit = extractEdit(texts[i], texts[i + 1]);
@@ -139,24 +182,6 @@ function createGenericMetadata() {
     startTime: Date.now(),
     endTime: Date.now(),
   };
-}
-
-function createEditList(startText: string, edits: IChangeEvent[], silently: boolean): EditList {
-  const editList = new EditList();
-  if (!silently) {
-    editList.trace = (...args: any[]) => { console.log(...args); };
-  }
-  const metadata = createGenericMetadata();
-  editList.setInitialText(startText, metadata);
-  edits.forEach(edit => {
-    editList.addEdit(edit, metadata);
-  });
-  return editList;
-}
-
-function countEdges(editList: EditList, from: string, to: string) {
-  const edges = getEdges(editList, from, to);
-  return edges.length;
 }
 
 function getEdges(editList: EditList, from: string, to: string) {
@@ -189,10 +214,11 @@ describe('Extract Edits', () => {
     ];
     const edits = extractEdits(texts);
     edits.forEach(e => console.log(e));
-    const editList = createEditList(texts[0], edits, false);
+    const editList = createEditList(texts, false);
 
     assert.equal(editList.toPlainText(), texts[texts.length - 1]);
   });
+
   it('handles internal deletions', () => {
     const texts = [
       'Hello World',
@@ -204,14 +230,49 @@ describe('Extract Edits', () => {
     assert.equal(edit.rangeOffset, 6);
     assert.equal(edit.rangeLength, 3);
     assert.equal(edit.text, '');
-    const editList = createEditList(texts[0], edits, false);
+    const editList = createEditList(texts, false);
+    assert.equal(editList.toPlainText(), texts[texts.length - 1]);
+  });
+
+  it('handles internal deletions surrounded by the same character', () => {
+    const texts = [
+      'baba',
+      'ba',
+    ];
+    const edits = extractEdits(texts);
+    edits.forEach(e => console.log(e));
+
+    const edit = edits[0];
+    assert.equal(edit.rangeOffset, 2);
+    assert.equal(edit.rangeLength, 2);
+    assert.equal(edit.text, '');
+
+    const editList = createEditList(texts, false);
+
+    assert.equal(editList.toPlainText(), texts[texts.length - 1]);
+  });
+
+  it('handles internal deletions surrounded by the same character', () => {
+    const texts = [
+      'Hello this World',
+      'Hello World',
+    ];
+    const edits = extractEdits(texts);
+    edits.forEach(e => console.log(e));
+
+    const edit = edits[0];
+    assert.equal(edit.rangeOffset, 6);
+    assert.equal(edit.rangeLength, 5);
+    assert.equal(edit.text, '');
+
+    const editList = createEditList(texts, false);
+
     assert.equal(editList.toPlainText(), texts[texts.length - 1]);
   });
 });
 
 function testHistorySearch(changes: string[], additionalSearchTexts: string[] = []) {
-  const edits = extractEdits(changes);
-  const editList = createEditList(changes[0], edits, false);
+  const editList = createEditList(changes, false);
   for (let i = 0; i < changes.length; i++) {
     const searchText = changes[i];
     const match = editList.query(searchText);
@@ -275,8 +336,7 @@ describe('Edit List', () => {
       'Hello World',
       'Hello ld',
     ];
-    const edits = extractEdits(texts);
-    const editList = createEditList(texts[0], edits, false);
+    const editList = createEditList(texts, false);
     console.dir((editList.getEdits()[0] as EditNode).toPrintable(), { depth: 5 });
 
     let e1, e2, e3;
@@ -294,8 +354,7 @@ describe('Edit List', () => {
       'Hello World',
       'Hello cruel World',
     ];
-    const edits = extractEdits(texts);
-    const editList = createEditList(texts[0], edits, false);
+    const editList = createEditList(texts, false);
     console.dir((editList.getEdits()[0] as EditNode).toPrintable(), { depth: 5 });
 
     let e1, e2, e3;
@@ -307,4 +366,22 @@ describe('Edit List', () => {
     assert.strictEqual(e1[0][0], e2[0][0]);
     assert.strictEqual(e2[0][1], e3[0][0]);
   });
+
+  it('should handle undo/redo', () => {
+    const texts = [
+      { text: 'Hello World', isUndoRedo: false, author: 'a1' },
+      { text: 'Hello this cruel World', isUndoRedo: false, author: 'a2' },
+      { text: 'Hello this silly World', isUndoRedo: false, author: 'a3' },
+      { text: 'Hello this cruel World', isUndoRedo: true, author: 'a1' },
+      { text: 'Hello World', isUndoRedo: true, author: 'a1' },
+      { text: 'Hello this silly World', isUndoRedo: true, author: 'a1' },
+    ] as EditDef[];
+    const editList = createEditList(texts, false);
+    expect(editList.toPlainText()).toEqual(texts[texts.length - 1].text);
+    expect(editList.getAuthors(new Span(0, 5), false)).toEqual(new Set(['a1']));
+    expect(editList.getAuthors(new Span(7, 10), false)).toEqual(new Set(['a2']));
+    expect(editList.getAuthors(new Span(12, 16), false)).toEqual(new Set(['a3']));
+    expect(editList.getAuthors(new Span(18, 22), false)).toEqual(new Set(['a1']));
+  });
+
 });

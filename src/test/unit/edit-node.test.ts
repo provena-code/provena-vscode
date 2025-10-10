@@ -47,7 +47,7 @@ describe('EditNode search', () => {
         expect(match?.[0].range.start).toBe(1);
         expect(match?.[0].range.end).toBe(3);
     });
-    it('finds the first match of multiple', () => {
+    it('finds the most recent match of multiple', () => {
         const root = createNode('Start ');
         const child1 = createNode('Hello world');
         const child2 = createNode('Goodbye world');
@@ -56,9 +56,9 @@ describe('EditNode search', () => {
         const match = root.search('world', 0, 0);
         expect(match).not.toBeNull();
         expect(match?.length).toBe(1);
-        expect(match?.[0].node).toBe(child1);
-        expect(match?.[0].range.start).toBe(6);
-        expect(match?.[0].range.end).toBe(10);
+        expect(match?.[0].node).toBe(child2);
+        expect(match?.[0].range.start).toBe(8);
+        expect(match?.[0].range.end).toBe(12);
     });
     it('returns null when no match', () => {
         const node = createNode('Hello world');
