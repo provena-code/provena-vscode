@@ -72,7 +72,8 @@ export class EditNode implements EditRange {
     }
 
     addChild(child: EditNode) {
-        this.outEdges.push({
+        // Keep the most recent child at the front, so we search it first
+        this.outEdges.unshift({
             textIndices: [this.text.length],
             child
         });
@@ -155,14 +156,14 @@ export class EditNode implements EditRange {
         return copy;
     }
 
-    private searchEdges(query: string, nQueryIndex: number, nNodeIndex: number, startNodeIndex: number): QueryMatch | null {
+    private searchEdges(query: string, nQueryIndex: number, nNodeIndex: number, startNodeIndex: number, checked: Map<EditNode, number[]>): QueryMatch | null {
         // We matched all of this node, but not the whole query,
         // so continue the search in each of the children
         for (const edge of this.outEdges) {
             if (!edge.textIndices.includes(nNodeIndex)) {
                 continue;
             }
-            const match = edge.child.search(query, nQueryIndex, 0);
+            const match = edge.child.search(query, nQueryIndex, 0, checked);
             if (match) {
                 match.unshift({
                     node: this,
@@ -174,10 +175,26 @@ export class EditNode implements EditRange {
         return null;
     }
 
-    search(query: string, queryIndex: number, nodeIndex: number): QueryMatch | null {
+    search(query: string, queryIndex: number, nodeIndex: number, checked: Map<EditNode, number[]> = new Map()): QueryMatch | null {
         if (query.length === 0) {
             throw new Error('Query cannot be empty');
         }
+
+        // This is a DAG and we're using depth-first search, so we might hit nodes
+        // multiple times. To make things more efficient, we keep track of which nodes
+        // we've already checked for a given queryIndex, and skip them if we hit them again.
+        // This should never happen *during* a recursive call from this node, so it's ok to
+        // return null; if the answer wasn't null, we'd have already returned it.
+        if (!checked.has(this)) {
+            checked.set(this, [queryIndex]);
+        } else {
+            const checkedIndices = checked.get(this)!;
+            if (checkedIndices.includes(queryIndex)) {
+                return null;
+            }
+            checkedIndices.push(queryIndex);
+        }
+
         for (; nodeIndex < this.text.length; nodeIndex++) {
             let nQueryIndex = queryIndex;
             let nNodeIndex = nodeIndex;
@@ -191,7 +208,7 @@ export class EditNode implements EditRange {
 
                 // If we're ready to break out of the loop, skip checking children
                 if (nQueryIndex < query.length && nNodeIndex < this.text.length) {
-                    const match = this.searchEdges(query, nQueryIndex, nNodeIndex, startNodeIndex);
+                    const match = this.searchEdges(query, nQueryIndex, nNodeIndex, startNodeIndex, checked);
                     if (match) {
                         return match;
                     }
@@ -209,14 +226,14 @@ export class EditNode implements EditRange {
                 continue;
             }
 
-            const match = this.searchEdges(query, nQueryIndex, nNodeIndex, startNodeIndex);
+            const match = this.searchEdges(query, nQueryIndex, nNodeIndex, startNodeIndex, checked);
             if (match) {
                 return match;
             }
         }
         // The query doesn't match this node, so try the children
         for (const edge of this.outEdges) {
-            const match = edge.child.search(query, queryIndex, 0);
+            const match = edge.child.search(query, queryIndex, 0, checked);
             if (match) {
                 return match;
             }
