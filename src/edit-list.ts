@@ -137,10 +137,10 @@ export class EditList {
             return;
         }
         // TEMP
-        this.addEdit(changeEvent, metadata);
+        this.addEdit(changeEvent, metadata, true);
     }
 
-    addEdit(changeEvent: IChangeEvent, metadata: Metadata) {
+    addEdit(changeEvent: IChangeEvent, metadata: Metadata, isUndoOrRedo = false) {
         this.trace('Current edits:', this.toStringWithRanges());
 
         // TODO: What do we do with rangeOffset?
@@ -219,15 +219,17 @@ export class EditList {
             const index = this.findLastEditBefore(replacedSpan.start) + 1;
             const priorEdit = this.edits[index - 1];
             const subsequentEdit = this.edits[index];
-            const nPriorEditChildren = priorEdit?.getChildren().length;
-            if (priorEdit && priorEdit.metadata.author === metadata.author && priorEdit.range.end === replacedSpan.start &&
+            let matchPath: QueryMatch | null = this.findUndoOrRedoMatch(isUndoOrRedo, priorEdit, subsequentEdit, text);
+            if (matchPath) {
+                // If we've created this text at this position before, just reconnect to that edit
+                this.trace('Reusing existing edit', matchPath[0]);
+                // These nodes are already in the graph, so just update the edits list
+                const nodes = matchPath.map(m => m.node);
+                this.edits.splice(index, 0, ...nodes);
+
+            } else if (priorEdit && priorEdit.metadata.author === metadata.author && priorEdit.range.end === replacedSpan.start &&
                 // We only append if this doesn't delete text and it inserts in an existing gap
                 replacedSpan.start === replacedSpan.end && overlappingEdits.length === 0
-                // // Make sure that we didn't split any edits with this insertion
-                // // Any edit with more than 1 child can't be appended to
-                // nPriorEditChildren <= 1 &&
-                // // If that edit has a child, it should also be active; otherwise we shouldn't add to it
-                // (nPriorEditChildren === 0 || this.edits.includes(priorEdit.getChildren()[0]))
             ) {
                 // If this edit is immediately after an edit by the same author, merge them
                 this.trace('Merging with prior edit', priorEdit, `${priorEdit.text} -> "${priorEdit.text + text}"`);
@@ -271,6 +273,30 @@ export class EditList {
         }
 
         this.trace('Final edits:', this.toStringWithRanges());
+    }
+
+    private findUndoOrRedoMatch(isUndoOrRedo: boolean, priorEdit: EditNode, subsequentEdit: EditNode, text: string) {
+        if (!isUndoOrRedo) {
+            return null;
+        }
+        const matchPath = priorEdit.search(text, 0, 0);
+        if (!matchPath) {
+            console.error('Internal error: undo/redo edit not found in subsequent edit');
+            return null;
+        }
+
+        for (const match of matchPath) {
+            if (match.range.start !== 0 || match.range.end !== match.node.text.length - 1) {
+                console.error('Internal error: undo/redo edit match does not cover entire edit', match);
+                return null;
+            }
+        }
+        const lastMatch = matchPath[matchPath.length - 1];
+        if (!lastMatch.node.getChildren().includes(subsequentEdit)) {
+            console.error('Internal error: undo/redo edit match does not lead to subsequent edit', lastMatch.node, subsequentEdit);
+            return null;
+        }
+        return matchPath;
     }
 
     // Not needed, since we append to existing edits, and we don't actually

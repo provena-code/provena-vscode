@@ -251,6 +251,7 @@ export class EditNode implements EditRange {
 
 export type QueryMatch = {
     node: EditNode;
+    /** A range of indices (inclusive) within the node's text that match. */
     range: Span;
 }[];
 

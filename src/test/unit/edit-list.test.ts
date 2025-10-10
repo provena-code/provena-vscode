@@ -380,8 +380,8 @@ describe('Edit List', () => {
     expect(editList.toPlainText()).toEqual(texts[texts.length - 1].text);
     expect(editList.getAuthors(new Span(0, 5), false)).toEqual(new Set(['a1']));
     expect(editList.getAuthors(new Span(7, 10), false)).toEqual(new Set(['a2']));
-    expect(editList.getAuthors(new Span(12, 16), false)).toEqual(new Set(['a3']));
-    expect(editList.getAuthors(new Span(18, 22), false)).toEqual(new Set(['a1']));
+    expect(editList.getAuthors(new Span(11, 15), false)).toEqual(new Set(['a3']));
+    expect(editList.getAuthors(new Span(17, 21), false)).toEqual(new Set(['a1']));
   });
 
 });
