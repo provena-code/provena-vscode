@@ -70,8 +70,14 @@ export function activate(context: vscode.ExtensionContext) {
 		// }
 
 		const text = await vscode.env.clipboard.readText();
+		const isUndoOrRedo =
+			event.reason === vscode.TextDocumentChangeReason.Undo ||
+			event.reason === vscode.TextDocumentChangeReason.Redo;
 
-		if (event.reason === undefined) {
+		if (isUndoOrRedo) {
+			// Shouldn't really be used
+			author = 'user';
+		} else {
 			if (event.contentChanges.length === 1) {
 				if (event.contentChanges[0].text.length <= 3) {
 					author = 'user';
@@ -85,8 +91,6 @@ export function activate(context: vscode.ExtensionContext) {
 				// 	}
 				// });
 			}
-		} else {
-			// TODO: Handle undo/redo properly
 		}
 		event.contentChanges.forEach(change => {
 			const metadata : Metadata = {

@@ -128,18 +128,6 @@ export class EditList {
         this.headChildren.push(child);
     }
 
-    addUndoOrRedo(changeEvent: IChangeEvent, metadata: Metadata) {
-        if (changeEvent.text.length === 0) {
-            // Deletions don't change the edit graph meaningfully
-            // (they may split nodes while retaining the same text)
-            // so we can treat them like any other edit.
-            this.addEdit(changeEvent, metadata);
-            return;
-        }
-        // TEMP
-        this.addEdit(changeEvent, metadata, true);
-    }
-
     addEdit(changeEvent: IChangeEvent, metadata: Metadata, isUndoOrRedo = false) {
         this.trace('Current edits:', this.toStringWithRanges());
 
@@ -225,6 +213,9 @@ export class EditList {
                 this.trace('Reusing existing edit', matchPath[0]);
                 // These nodes are already in the graph, so just update the edits list
                 const nodes = matchPath.map(m => m.node);
+                nodes.forEach(n => {
+                    n.metadata.endTime = metadata.endTime;
+                });
                 this.edits.splice(index, 0, ...nodes);
 
             } else if (priorEdit && priorEdit.metadata.author === metadata.author && priorEdit.range.end === replacedSpan.start &&

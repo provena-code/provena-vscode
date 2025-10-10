@@ -158,11 +158,7 @@ function createEditList(textDefs: EditDefInput[], silently: boolean): EditList {
     }
     console.log('------------------------- Adding Edit -------------------------');
     console.log(edit);
-    if (editDef.isUndoRedo) {
-      editList.addUndoOrRedo(edit, metadata);
-    } else {
-      editList.addEdit(edit, metadata);
-    }
+    editList.addEdit(edit, metadata, editDef.isUndoRedo);
   });
   return editList;
 }

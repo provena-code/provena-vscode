@@ -14,7 +14,14 @@ export class CodeRenderer {
 
     private renderEdit(editRange: EditNode) {
         return `<span class="edit-range ${this.getAuthorClass(editRange.metadata.author)}"
+        title="${this.summarizeMetadata(editRange.metadata)}"
         ${this.metadataToHTMLData(editRange.metadata)}>${editRange.text}</span>`;
+    }
+
+    private summarizeMetadata(metadata: Metadata) {
+        const startDate = new Date(metadata.startTime);
+        const endDate = new Date(metadata.endTime);
+        return `Author: ${metadata.author}\nStart: ${startDate.toLocaleString()}\nEnd: ${endDate.toLocaleString()}`;
     }
 
     private getAuthorClass(author: string) {
