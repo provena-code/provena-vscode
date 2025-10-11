@@ -156,14 +156,14 @@ export class EditNode implements EditRange {
         return copy;
     }
 
-    private searchEdges(query: string, nQueryIndex: number, nNodeIndex: number, startNodeIndex: number, checked: Map<EditNode, number[]>): QueryMatch | null {
+    private searchEdges(queryParams: QueryParams, nQueryIndex: number, nNodeIndex: number, startNodeIndex: number): QueryMatch | null {
         // We matched all of this node, but not the whole query,
         // so continue the search in each of the children
         for (const edge of this.outEdges) {
             if (!edge.textIndices.includes(nNodeIndex)) {
                 continue;
             }
-            const match = edge.child.search(query, nQueryIndex, 0, checked);
+            const match = edge.child.search(queryParams, nQueryIndex);
             if (match) {
                 match.unshift({
                     node: this,
@@ -175,7 +175,12 @@ export class EditNode implements EditRange {
         return null;
     }
 
-    search(query: string, queryIndex: number, nodeIndex: number, checked: Map<EditNode, number[]> = new Map()): QueryMatch | null {
+    search(queryParams: QueryParams, queryIndex: number = 0): QueryMatch | null {
+
+        const { query, exactIndex, checked = new Map<EditNode, number[]>() } = queryParams;
+        // In the future could support this as a parameter, but I don't have a use case for it yet
+        let nodeIndex = 0;
+
         if (query.length === 0) {
             throw new Error('Query cannot be empty');
         }
@@ -195,7 +200,11 @@ export class EditNode implements EditRange {
             checkedIndices.push(queryIndex);
         }
 
-        for (; nodeIndex < this.text.length; nodeIndex++) {
+        // If exactIndex is true, we only want to match starting at nodeIndex
+        // Otherwise, we can start matching anywhere in this node's text
+        const maxLength = exactIndex ? Math.min(this.text.length - 1, nodeIndex) : this.text.length - 1;
+
+        for (; nodeIndex <= maxLength; nodeIndex++) {
             let nQueryIndex = queryIndex;
             let nNodeIndex = nodeIndex;
             const startNodeIndex = nNodeIndex;
@@ -208,7 +217,7 @@ export class EditNode implements EditRange {
 
                 // If we're ready to break out of the loop, skip checking children
                 if (nQueryIndex < query.length && nNodeIndex < this.text.length) {
-                    const match = this.searchEdges(query, nQueryIndex, nNodeIndex, startNodeIndex, checked);
+                    const match = this.searchEdges(queryParams, nQueryIndex, nNodeIndex, startNodeIndex);
                     if (match) {
                         return match;
                     }
@@ -226,14 +235,19 @@ export class EditNode implements EditRange {
                 continue;
             }
 
-            const match = this.searchEdges(query, nQueryIndex, nNodeIndex, startNodeIndex, checked);
+            const match = this.searchEdges(queryParams, nQueryIndex, nNodeIndex, startNodeIndex);
             if (match) {
                 return match;
             }
         }
+
+        if (exactIndex) {
+            return null;
+        }
+
         // The query doesn't match this node, so try the children
         for (const edge of this.outEdges) {
-            const match = edge.child.search(query, queryIndex, 0, checked);
+            const match = edge.child.search(queryParams, queryIndex);
             if (match) {
                 return match;
             }
@@ -254,6 +268,12 @@ export type QueryMatch = {
     /** A range of indices (inclusive) within the node's text that match. */
     range: Span;
 }[];
+
+export type QueryParams = {
+    query: string;
+    exactIndex: boolean;
+    checked?: Map<EditNode, number[]>;
+}
 
 export class Span {
     constructor(public readonly start: number, public readonly end: number) {

@@ -13,7 +13,7 @@ function createNode(text: string): EditNode {
 describe('EditNode search', () => {
     it('finds text in single node', () => {
         const node = createNode('Hello world');
-        const match = node.search('world', 0, 0);
+        const match = node.search({query: 'world', exactIndex: false});
         expect(match).not.toBeNull();
         expect(match?.length).toBe(1);
         expect(match?.[0].node).toBe(node);
@@ -25,7 +25,7 @@ describe('EditNode search', () => {
         const parent = createNode('Hello ');
         const child = createNode('world');
         parent.addChild(child);
-        const match = parent.search('llo wo', 0, 0);
+        const match = parent.search({query: 'llo wo', exactIndex: false});
         expect(match).not.toBeNull();
         expect(match?.length).toBe(2);
         expect(match?.[0].node).toBe(parent);
@@ -40,7 +40,7 @@ describe('EditNode search', () => {
         const parent = createNode('Hello ');
         const child1 = createNode('world');
         parent.addChild(child1);
-        const match = parent.search('orl', 0, 0);
+        const match = parent.search({query: 'orl', exactIndex: false});
         expect(match).not.toBeNull();
         expect(match?.length).toBe(1);
         expect(match?.[0].node).toBe(child1);
@@ -53,7 +53,7 @@ describe('EditNode search', () => {
         const child2 = createNode('Goodbye world');
         root.addChild(child1);
         root.addChild(child2);
-        const match = root.search('world', 0, 0);
+        const match = root.search({query: 'world', exactIndex: false});
         expect(match).not.toBeNull();
         expect(match?.length).toBe(1);
         expect(match?.[0].node).toBe(child2);
@@ -62,17 +62,17 @@ describe('EditNode search', () => {
     });
     it('returns null when no match', () => {
         const node = createNode('Hello world');
-        const match = node.search('world!', 0, 0);
+        const match = node.search({query: 'world!', exactIndex: false});
         expect(match).toBeNull();
 
-        const match2 = node.search('Helloworld', 0, 0);
+        const match2 = node.search({query: 'Helloworld', exactIndex: false});
         expect(match2).toBeNull();
 
-        const match3 = node.search('Oh Hello', 0, 0);
+        const match3 = node.search({query: 'Oh Hello', exactIndex: false});
         expect(match3).toBeNull();
     });
     it('empty query gives error', () => {
         const node = createNode('Hello world');
-        expect(() => node.search('', 0, 0)).toThrowError('Query cannot be empty');
+        expect(() => node.search({query: '', exactIndex: false})).toThrowError('Query cannot be empty');
     });
 });

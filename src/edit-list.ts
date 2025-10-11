@@ -1,6 +1,6 @@
 import { deprecate } from 'node:util';
 import { IChangeEvent } from './recorder-util';
-import { EditRange, Span, Metadata, copyEditRange, EditNode, copyMetadata, QueryMatch } from './shared/edit-data';
+import { EditRange, Span, Metadata, copyEditRange, EditNode, copyMetadata, QueryMatch, QueryParams } from './shared/edit-data';
 
 /**
  * Manages a history of edits with associated metadata from a code file.
@@ -10,7 +10,11 @@ import { EditRange, Span, Metadata, copyEditRange, EditNode, copyMetadata, Query
 // or a map from range to edit could be maintained
 export class EditList {
     private edits = [] as EditNode[];
-    private readonly headChildren = [] as EditNode[];
+    private head = new EditNode(new Span(0, 0), '', {
+        author: 'DUMMY',
+        startTime: 0,
+        endTime: 0
+    });
 
     trace: (...args: any[]) => void = (..._args: any[]) => { };
 
@@ -19,12 +23,12 @@ export class EditList {
     }
 
     getHeadChildren(): readonly EditNode[] {
-        return this.headChildren;
+        return this.head.getChildren();
     }
 
-    query(text: string): QueryMatch | null {
-        for (const headChild of this.headChildren) {
-            const match = headChild.search(text, 0, 0);
+    search(query: string): QueryMatch | null {
+        for (const headChild of this.head.getChildren()) {
+            const match = headChild.search({ query, exactIndex: false });
             if (match) {
                 return match;
             }
@@ -125,7 +129,7 @@ export class EditList {
         const range = new Span(0, text.length);
         const child = new EditNode(range, text, metadata);
         this.edits.push(child);
-        this.headChildren.push(child);
+        this.head.addChild(child);
     }
 
     addEdit(changeEvent: IChangeEvent, metadata: Metadata, isUndoOrRedo = false) {
@@ -206,7 +210,7 @@ export class EditList {
             const index = this.findLastEditBefore(replacedSpan.start) + 1;
             const priorEdit = this.edits[index - 1];
             const subsequentEdit = this.edits[index];
-            let matchPath: QueryMatch | null = this.findUndoOrRedoMatch(isUndoOrRedo, priorEdit, subsequentEdit, text);
+            let matchPath: QueryMatch | null = this.findUndoOrRedoMatch(isUndoOrRedo, index, subsequentEdit, text);
             if (matchPath) {
                 // If we've created this text at this position before, just reconnect to that edit
                 this.trace('Reusing existing edit', matchPath[0]);
@@ -258,23 +262,39 @@ export class EditList {
 
         // this.defragment();
 
-        if (!this.headChildren.includes(this.edits[0])) {
-            this.headChildren.push(this.edits[0]);
+        if (!this.head.getChildren().includes(this.edits[0])) {
+            this.head.addChild(this.edits[0]);
         }
 
         this.trace('Final edits:', this.toStringWithRanges());
     }
 
-    private findUndoOrRedoMatch(isUndoOrRedo: boolean, priorEdit: EditNode, subsequentEdit: EditNode, text: string) {
+    private findUndoOrRedoMatch(isUndoOrRedo: boolean, index: number, subsequentEdit: EditNode, text: string) {
         if (!isUndoOrRedo) {
             return null;
         }
-        // TODO: This should really be searching the children only, and it should only search from the very
-        // very beginning of these nodes and children, etc. We need a parameter that searches strictly from
-        // the beginning of the node and subsequent children.
-        // Also we should be mindful that the search start with nodes most recently added in the timeline of
-        // the undo/redo.
-        const matchPath = priorEdit.search(text, 0, 0);
+
+        // TODO: Handle index = 0
+        const priorEdit = index === 0 ? this.head : this.edits[index - 1];
+
+        const ignoreMap: Map<EditNode, number[]> = new Map();
+        for (let i = index; i < this.edits.length; i++) {
+            // Don't search any edits that are already active; these
+            // cannot be the target of an undo/redo operation
+            ignoreMap.set(this.edits[i], [0]);
+        }
+
+        let matchPath;
+        for (const edge of priorEdit.getOutEdges()) {
+            // Only look for children that come from the very end of this edit
+            if (!edge.textIndices.includes(priorEdit.text.length)) {
+                continue;
+            }
+            matchPath = edge.child.search({ query: text, exactIndex: true, checked: ignoreMap }); // TODO: change to true when done testing
+            if (matchPath) {
+                break;
+            }
+        }
         if (!matchPath) {
             console.error('Internal error: undo/redo edit not found in subsequent edit');
             return null;
@@ -338,9 +358,8 @@ export class EditList {
 
         const index = this.edits.indexOf(edit);
         this.edits.splice(index, 1, leftEdit, rightEdit);
-        const headIndex = this.headChildren.indexOf(edit);
-        if (headIndex !== -1) {
-            this.headChildren.splice(headIndex, 1, leftEdit);
+        if (this.head.getChildren().includes(edit)) {
+            this.head.removeChild(edit);
         }
         return { leftEdit, rightEdit };
     }

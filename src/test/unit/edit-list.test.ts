@@ -75,7 +75,7 @@ function testFile(name: string, checkReproduction: boolean, checkHistorySearch: 
       for (let i = 0; i < textHistory.length; i++) {
         const history = textHistory[i];
         console.log(`Searching for history item ${i}: ${history.replace(/\n/g, '\\n').replace(/\r/g, '\\r')}`);
-        const match = editList.query(history);
+        const match = editList.search(history);
         expect(match).not.toBeNull();
       }
     }
@@ -105,7 +105,7 @@ function extractEdit(s0: string, s1: string): IChangeEvent {
   let replacedEnd = s0.length - 1;
   for (; replacedEnd >= replacedStart; replacedEnd--) {
     let s1Index = replacedEnd + (s1.length - s0.length);
-    if (s1Index === 0 || s1Index < replacedStart) {
+    if (s1Index < 0 || s1Index < replacedStart) {
       break;
     }
     if (s0[replacedEnd] !== s1[s1Index]) {
@@ -113,12 +113,16 @@ function extractEdit(s0: string, s1: string): IChangeEvent {
     }
   }
   const insertedText = s1.slice(replacedStart, s1.length - (s0.length - replacedEnd - 1));
+  const rangeLength = replacedEnd - replacedStart + 1;
+  if (replacedEnd < 0) {
+    replacedEnd = 0;
+  }
   return {
     range: new Range(
       new Position(replacedStart, 0),
       new Position(replacedEnd, 0)
     ),
-    rangeLength: replacedEnd - replacedStart + 1,
+    rangeLength,
     rangeOffset: replacedStart,
     text: insertedText,
   };
@@ -265,20 +269,50 @@ describe('Extract Edits', () => {
 
     assert.equal(editList.toPlainText(), texts[texts.length - 1]);
   });
+
+    it('handles deletions at the start', () => {
+    const texts = [
+      'Hello World',
+      'World',
+    ];
+    const edits = extractEdits(texts);
+    assert.equal(edits.length, 1);
+    const edit = edits[0];
+    assert.equal(edit.rangeOffset, 0);
+    assert.equal(edit.rangeLength, 6);
+    assert.equal(edit.text, '');
+    const editList = createEditList(texts, false);
+    assert.equal(editList.toPlainText(), texts[texts.length - 1]);
+  });
+
+  it('handles insertions at the start', () => {
+    const texts = [
+      'World',
+      'Hello World',
+    ];
+    const edits = extractEdits(texts);
+    assert.equal(edits.length, 1);
+    const edit = edits[0];
+    assert.equal(edit.rangeOffset, 0);
+    assert.equal(edit.rangeLength, 0);
+    assert.equal(edit.text, 'Hello ');
+    const editList = createEditList(texts, false);
+    assert.equal(editList.toPlainText(), texts[texts.length - 1]);
+  });
 });
 
 function testHistorySearch(changes: string[], additionalSearchTexts: string[] = []) {
   const editList = createEditList(changes, false);
   for (let i = 0; i < changes.length; i++) {
     const searchText = changes[i];
-    const match = editList.query(searchText);
+    const match = editList.search(searchText);
     if (!match) {
       console.log(`Failed to find match for history item ${i}: \n${searchText.replace(/\n/g, '\\n').replace(/\r/g, '\\r')}`);
     }
     expect(match).not.toBeNull();
   }
   for (const searchText of additionalSearchTexts) {
-    const match = editList.query(searchText);
+    const match = editList.search(searchText);
     expect(match).not.toBeNull();
   }
 }
@@ -415,6 +449,19 @@ describe('Edit List', () => {
     expect(editList.getAuthors(wordRanges[4], false)).toEqual(new Set(['a1']));
   });
 
+  it('should handle undoing a deletion of text that exists in multiple locations', () => {
+    const texts = [
+      { text: 'One Two Four Two', isUndoRedo: false, author: 'a1' },
+      { text: 'One  Four Two', isUndoRedo: false, author: 'a2' },
+      { text: 'One Two Four Two', isUndoRedo: true, author: 'a3' },
+    ] as EditDef[];
+    const editList = createEditList(texts, false);
+    expect(editList.toPlainText()).toEqual(texts[texts.length - 1].text);
+    console.log(editList.toString());
+
+    expect(editList.getAuthors(new Span(0, texts[texts.length - 1].text.length), false)).toEqual(new Set(['a1']));
+  });
+
   it('should correctly attribute testUndo.log', () => {
     const logs = readTestFile('testUndo.log');
     const editList = new EditList();
@@ -452,6 +499,19 @@ describe('Edit List', () => {
     });
 
     expect(editList.getAuthors(new Span(0, 6), false)).toEqual(new Set(['initial']));
+  });
+
+  it('should handle undo/redo of the first character', () => {
+    const texts = [
+      { text: 'Two Four Two', isUndoRedo: false, author: 'a1' },
+      { text: ' Four Two', isUndoRedo: false, author: 'a2' },
+      { text: 'Two Four Two', isUndoRedo: true, author: 'a3' },
+    ] as EditDef[];
+    const editList = createEditList(texts, false);
+    expect(editList.toPlainText()).toEqual(texts[texts.length - 1].text);
+    console.log(editList.toString());
+
+    expect(editList.getAuthors(new Span(0, texts[texts.length - 1].text.length), false)).toEqual(new Set(['a1']));
   });
 
 });
