@@ -30,6 +30,10 @@ function testFile(name: string, checkReproduction: boolean, checkHistorySearch: 
   const data = readTestFile(name);
   const editList = new EditList();
   editList.trace = (...args: any[]) => { console.log(...args); };
+  editList.logError = (...args: any[]) => { 
+    console.error(...args); 
+    assert.fail('Error logged during test');
+  };
   console.log(`Testing file ${name} with ${data.length} events`);
   let firstEvent = true;
   let textHistory = [];
@@ -44,6 +48,7 @@ function testFile(name: string, checkReproduction: boolean, checkHistorySearch: 
       textHistory.push(event.documentText);
       return;
     }
+    const isUndoRedo = event.reason !== undefined;
     event.contentChanges.forEach(change => {
       console.log('------------------------- Change -------------------------');
       console.log(change);
@@ -63,7 +68,7 @@ function testFile(name: string, checkReproduction: boolean, checkHistorySearch: 
         author: 'test',
         startTime: event.time,
         endTime: event.time,
-      });
+      }, isUndoRedo);
     });
     const editText = normalizeLineEndings(editList.toPlainText());
     const documentText = normalizeLineEndings(event.documentText);
@@ -80,12 +85,9 @@ function testFile(name: string, checkReproduction: boolean, checkHistorySearch: 
       }
     }
   });
+  return editList;
 }
 
-const testFiles = [
-  'test1.log',
-  'test2.log',
-];
 
 /**
  * Extracts the edit information between two strings.
@@ -325,6 +327,9 @@ describe('Edit List', () => {
   it('should reproduce test2', () => {
     testFile('test2.log', true, false);
   });
+  it('should reproduce test3', () => {
+    testFile('test3.log', true, false);
+  });
   it('should match history for test1', () => {
     testFile('test1.log', false, true);
   });
@@ -463,42 +468,8 @@ describe('Edit List', () => {
   });
 
   it('should correctly attribute testUndo.log', () => {
-    const logs = readTestFile('testUndo.log');
-    const editList = new EditList();
-    editList.trace = (...args: any[]) => { console.log(...args); };
-    let firstEvent = true;
-
-    // TODO: Refactor to combine with testFile()
-    logs.forEach((event, i) => {
-      if (firstEvent) {
-        editList.setInitialText(event.documentText, {
-          author: 'initial',
-          startTime: event.time,
-          endTime: event.time,
-        });
-        firstEvent = false;
-        return;
-      }
-      for (const change of event.contentChanges) {
-        const realRange = change.range as any as RangeJson;
-        const realChangeEvent = {
-          range: new Range(
-            new Position(realRange[0].line, realRange[0].character),
-            new Position(realRange[1].line, realRange[1].character)
-          ),
-          rangeLength: change.rangeLength,
-          rangeOffset: change.rangeOffset,
-          text: change.text,
-        } as IChangeEvent;
-        editList.addEdit(realChangeEvent, {
-          author: 'user',
-          startTime: event.time,
-          endTime: event.time,
-        }, i === 4);
-      }
-    });
-
-    expect(editList.getAuthors(new Span(0, 6), false)).toEqual(new Set(['initial']));
+    const editList = testFile('testUndo.log', true, false);
+    expect(editList.getAuthors(new Span(0, 6), false)).toEqual(new Set(['existing-text']));
   });
 
   it('should handle undo/redo of the first character', () => {

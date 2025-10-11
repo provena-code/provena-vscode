@@ -17,6 +17,7 @@ export class EditList {
     });
 
     trace: (...args: any[]) => void = (..._args: any[]) => { };
+    logError: (...args: any[]) => void = (..._args: any[]) => { console.error(..._args); };
 
     getEdits(): readonly EditRange[] {
         return this.edits;
@@ -296,19 +297,19 @@ export class EditList {
             }
         }
         if (!matchPath) {
-            console.error('Internal error: undo/redo edit not found in subsequent edit');
+            this.logError('Internal error: undo/redo edit not found in subsequent edit');
             return null;
         }
 
         for (const match of matchPath) {
             if (match.range.start !== 0 || match.range.end !== match.node.text.length - 1) {
-                console.error('Internal error: undo/redo edit match does not cover entire edit', match);
+                this.logError('Internal error: undo/redo edit match does not cover entire edit', match);
                 return null;
             }
         }
         const lastMatch = matchPath[matchPath.length - 1];
         if (!lastMatch.node.getChildren().includes(subsequentEdit)) {
-            console.error('Internal error: undo/redo edit match does not lead to subsequent edit', lastMatch.node, subsequentEdit);
+            this.logError('Internal error: undo/redo edit match does not lead to subsequent edit', lastMatch.node, subsequentEdit);
             return null;
         }
         return matchPath;
