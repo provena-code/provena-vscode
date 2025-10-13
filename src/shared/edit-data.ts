@@ -176,8 +176,14 @@ export class EditNode implements EditRange {
     }
 
     search(queryParams: QueryParams, queryIndex: number = 0): QueryMatch | null {
+        // Destructure parameters for easier access
+        const {
+            query,
+            exactIndex,
+            checked = new Map<EditNode, number[]>(),
+            subsequentEdit
+        } = queryParams;
 
-        const { query, exactIndex, checked = new Map<EditNode, number[]>() } = queryParams;
         // In the future could support this as a parameter, but I don't have a use case for it yet
         let nodeIndex = 0;
 
@@ -225,6 +231,17 @@ export class EditNode implements EditRange {
             }
             // We've matched the entire query, so we have a match!
             if (nQueryIndex === query.length) {
+                if (subsequentEdit) {
+                    // Ensure that this match can lead to the subsequent edit
+                    const matchedEdges = this.getOutEdges().filter(e => {
+                        e.child === subsequentEdit &&
+                        e.textIndices.includes(nNodeIndex);
+                    });
+                    // If not it isn't a valid match, and we can stop here
+                    if (matchedEdges.length === 0) {
+                        return null;
+                    }
+                }
                 return [{
                     node: this,
                     range: new Span(startNodeIndex, Math.min(nNodeIndex - 1, this.text.length - 1))
@@ -273,6 +290,7 @@ export type QueryParams = {
     query: string;
     exactIndex: boolean;
     checked?: Map<EditNode, number[]>;
+    subsequentEdit?: EditNode;
 }
 
 export class Span {

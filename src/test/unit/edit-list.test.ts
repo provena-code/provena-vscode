@@ -30,8 +30,8 @@ function testFile(name: string, checkReproduction: boolean, checkHistorySearch: 
   const data = readTestFile(name);
   const editList = new EditList();
   editList.trace = (...args: any[]) => { console.log(...args); };
-  editList.logError = (...args: any[]) => { 
-    console.error(...args); 
+  editList.logError = (...args: any[]) => {
+    console.error(...args);
     assert.fail('Error logged during test');
   };
   console.log(`Testing file ${name} with ${data.length} events`);
@@ -186,6 +186,8 @@ function createGenericMetadata() {
   };
 }
 
+const WILDCARD = '<*>';
+
 function getEdges(editList: EditList, from: string, to: string) {
   const headChildren = editList.getHeadChildren();
   let edges = [] as [EditNode, EditNode][];
@@ -197,7 +199,8 @@ function getEdges(editList: EditList, from: string, to: string) {
 
 function getEdgesRecursive(node: EditNode, from: string, to: string, edges: [EditNode, EditNode][]) {
   for (const child of node.getChildren()) {
-    if (node.text === from && child.text === to) {
+    if ((from === WILDCARD || node.text === from) &&
+        (to === WILDCARD || child.text === to)) {
       edges.push([node, child]);
     }
     getEdgesRecursive(child, from, to, edges);
@@ -483,6 +486,44 @@ describe('Edit List', () => {
     console.log(editList.toString());
 
     expect(editList.getAuthors(new Span(0, texts[texts.length - 1].text.length), false)).toEqual(new Set(['a1']));
+  });
+
+  it('should not duplicate nodes unnecessarily', () => {
+    const texts = [
+      { text: 'World', isUndoRedo: false, author: 'a1' },
+      { text: 'HelWorld', isUndoRedo: false, author: 'a2' },
+      { text: 'Hello World', isUndoRedo: false, author: 'a2' },
+      { text: 'HelWorld', isUndoRedo: true, author: 'a3' },
+      { text: 'Hello World', isUndoRedo: true, author: 'a3' },
+    ] as EditDef[];
+    const editList = createEditList(texts, false);
+
+    const edges = getEdges(editList, WILDCARD, 'World');
+    // TODO: How many edges do I expect here?
+    // TODO: getEdges doesn't use textIndices yet, so this is unreliable
+    // expect(edges.length).toBe(2);
+
+    let worldNodes = new Set<EditNode>();
+    for (const edge of edges) {
+      worldNodes.add(edge[1]);
+    }
+    expect(worldNodes.size).toBe(1);
+  });
+
+  it('should handle undo/redo that split a node\'s text', () => {
+    const texts = [
+      { text: 'World', isUndoRedo: false, author: 'a1' },
+      { text: 'HelWorld', isUndoRedo: false, author: 'a2' },
+      { text: 'Hello World', isUndoRedo: false, author: 'a2' },
+      { text: 'HelWorld', isUndoRedo: true, author: 'a3' },
+      { text: 'Hello World', isUndoRedo: true, author: 'a3' },
+    ] as EditDef[];
+    const editList = createEditList(texts, false);
+    expect(editList.toPlainText()).toEqual(texts[texts.length - 1].text);
+    console.log(editList.toString());
+
+    expect(editList.getAuthors(new Span(0, 5), false)).toEqual(new Set(['a2']));
+    expect(editList.getAuthors(new Span(6, 10), false)).toEqual(new Set(['a1']));
   });
 
 });

@@ -215,10 +215,13 @@ export class EditList {
             if (matchPath) {
                 // If we've created this text at this position before, just reconnect to that edit
                 this.trace('Reusing existing edit', matchPath[0]);
+                let spanStart = replacedSpan.start;
                 // These nodes are already in the graph, so just update the edits list
                 const nodes = matchPath.map(m => m.node);
                 nodes.forEach(n => {
                     n.metadata.endTime = metadata.endTime;
+                    n.range = new Span(spanStart, spanStart + n.text.length);
+                    spanStart += n.text.length;
                 });
                 this.edits.splice(index, 0, ...nodes);
 
@@ -291,7 +294,7 @@ export class EditList {
             if (!edge.textIndices.includes(priorEdit.text.length)) {
                 continue;
             }
-            matchPath = edge.child.search({ query: text, exactIndex: true, checked: ignoreMap }); // TODO: change to true when done testing
+            matchPath = edge.child.search({ query: text, exactIndex: true, checked: ignoreMap, subsequentEdit: subsequentEdit }); // TODO: change to true when done testing
             if (matchPath) {
                 break;
             }
@@ -301,17 +304,8 @@ export class EditList {
             return null;
         }
 
-        for (const match of matchPath) {
-            if (match.range.start !== 0 || match.range.end !== match.node.text.length - 1) {
-                this.logError('Internal error: undo/redo edit match does not cover entire edit', match);
-                return null;
-            }
-        }
-        const lastMatch = matchPath[matchPath.length - 1];
-        if (!lastMatch.node.getChildren().includes(subsequentEdit)) {
-            this.logError('Internal error: undo/redo edit match does not lead to subsequent edit', lastMatch.node, subsequentEdit);
-            return null;
-        }
+        // Split nodes
+
         return matchPath;
     }
 
