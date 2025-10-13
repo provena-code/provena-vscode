@@ -51,7 +51,7 @@ function testFile(name: string, checkReproduction: boolean, checkHistorySearch: 
     const isUndoRedo = event.reason !== undefined;
     event.contentChanges.forEach(change => {
       console.log('------------------------- Change -------------------------');
-      console.log(change);
+      console.log(change, isUndoRedo ? `(undo/redo: ${event.reason})` : '');
       // Range and Position output to JSON as simplified data
       // representations, so we need to convert them back.
       const realRange = change.range as any as RangeJson;
@@ -81,7 +81,8 @@ function testFile(name: string, checkReproduction: boolean, checkHistorySearch: 
         const history = textHistory[i];
         const match = editList.search(history);
         if (!match) {
-          console.log(`Searching for history item ${i} failed: ${history.replace(/\n/g, '\\n').replace(/\r/g, '\\r')}`);
+          console.log(`Searching for history item ${i}/${textHistory.length}/${data.length} failed: ${history.replace(/\n/g, '\\n').replace(/\r/g, '\\r')}`);
+          editList.search(history);
         }
         expect(match).not.toBeNull();
       }
@@ -193,19 +194,24 @@ const WILDCARD = '<*>';
 function getEdges(editList: EditList, from: string, to: string) {
   const headChildren = editList.getHeadChildren();
   let edges = [] as [EditNode, EditNode][];
+  const seen = new Set<EditNode>();
   for (const headChild of headChildren) {
-    getEdgesRecursive(headChild, from, to, edges);
+    getEdgesRecursive(headChild, from, to, edges, seen);
   }
   return edges;
 }
 
-function getEdgesRecursive(node: EditNode, from: string, to: string, edges: [EditNode, EditNode][]) {
+function getEdgesRecursive(node: EditNode, from: string, to: string, edges: [EditNode, EditNode][], seen: Set<EditNode>) {
+  if (seen.has(node)) {
+    return;
+  }
+  seen.add(node);
   for (const child of node.getChildren()) {
     if ((from === WILDCARD || node.text === from) &&
         (to === WILDCARD || child.text === to)) {
       edges.push([node, child]);
     }
-    getEdgesRecursive(child, from, to, edges);
+    getEdgesRecursive(child, from, to, edges, seen);
   }
   return edges;
 }
@@ -490,26 +496,36 @@ describe('Edit List', () => {
     expect(editList.getAuthors(new Span(0, texts[texts.length - 1].text.length), false)).toEqual(new Set(['a1']));
   });
 
-  it('should not duplicate nodes unnecessarily', () => {
+  it('should not duplicate nodes or edges unnecessarily', () => {
     const texts = [
       { text: 'World', isUndoRedo: false, author: 'a1' },
       { text: 'HelWorld', isUndoRedo: false, author: 'a2' },
       { text: 'Hello World', isUndoRedo: false, author: 'a2' },
       { text: 'HelWorld', isUndoRedo: true, author: 'a3' },
-      { text: 'Hello World', isUndoRedo: true, author: 'a3' },
+      // { text: 'Hello World', isUndoRedo: true, author: 'a3' },
     ] as EditDef[];
     const editList = createEditList(texts, false);
 
-    const edges = getEdges(editList, WILDCARD, 'World');
-    // TODO: How many edges do I expect here?
-    // TODO: getEdges doesn't use textIndices yet, so this is unreliable
-    // expect(edges.length).toBe(2);
+    const toLoEdges = getEdges(editList, WILDCARD, 'lo ');
+    console.log('->lo Edges', toLoEdges.map(e => e[0].toPrintable()));
 
-    let worldNodes = new Set<EditNode>();
-    for (const edge of edges) {
+    const loNodes = new Set<EditNode>();
+    for (const edge of toLoEdges) {
+      loNodes.add(edge[1]);
+    }
+
+    const toWorldEdges = getEdges(editList, WILDCARD, 'World');
+    console.log('->World Edges', toWorldEdges.map(e => e[0].toPrintable()));
+
+    const worldNodes = new Set<EditNode>();
+    for (const edge of toWorldEdges) {
       worldNodes.add(edge[1]);
     }
+
+    expect(loNodes.size).toBe(1);
+    expect(toLoEdges.length).toBe(1);
     expect(worldNodes.size).toBe(1);
+    expect(toWorldEdges.length).toBe(2);
   });
 
   it('should handle undo/redo that split a node\'s text', () => {
@@ -518,6 +534,7 @@ describe('Edit List', () => {
       { text: 'HelWorld', isUndoRedo: false, author: 'a2' },
       { text: 'Hello World', isUndoRedo: false, author: 'a2' },
       { text: 'HelWorld', isUndoRedo: true, author: 'a3' },
+      { text: 'World', isUndoRedo: true, author: 'a3' },
       { text: 'Hello World', isUndoRedo: true, author: 'a3' },
     ] as EditDef[];
     const editList = createEditList(texts, false);

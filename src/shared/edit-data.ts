@@ -72,7 +72,17 @@ export class EditNode implements EditRange {
     }
 
     addChild(child: EditNode) {
-        // Keep the most recent child at the front, so we search it first
+        if (child === this) {
+            throw new Error('Cannot add self as child');
+        }
+        const edge = this.outEdges.find(edge => edge.child === child);
+        if (edge) {
+            if (edge.textIndices.includes(this.text.length)) {
+                return;
+            }
+            edge.textIndices.push(this.text.length);
+            return;
+        }
         this.outEdges.unshift({
             textIndices: [this.text.length],
             child
@@ -123,7 +133,6 @@ export class EditNode implements EditRange {
             copyMetadata(this.metadata)
         );
 
-        rightEdit.addChildren(this.getChildren());
         for (const edge of this.getOutEdges()) {
             const leftIndices = edge.textIndices.filter(index => index <= leftEdit.text.length);
             const rightIndices = edge.textIndices.filter(index => index > leftEdit.text.length)
