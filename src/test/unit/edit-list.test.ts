@@ -152,6 +152,10 @@ function createEditList(textDefs: EditDefInput[], silently: boolean): EditList {
   if (!silently) {
     editList.trace = (...args: any[]) => { console.log(...args); };
   }
+  editList.logError = (...args: any[]) => {
+    console.error(...args);
+    assert.fail('Error logged during test');
+  };
 
   const initialMetadata = createGenericMetadata();
   if (editDefs[0].author) {
@@ -544,5 +548,38 @@ describe('Edit List', () => {
     expect(editList.getAuthors(new Span(0, 5), false)).toEqual(new Set(['a2']));
     expect(editList.getAuthors(new Span(6, 10), false)).toEqual(new Set(['a1']));
   });
+
+    it('should handle simple undo/redo', () => {
+    const texts = [
+      { text: '#Hello\n\nWorld', isUndoRedo: false, author: 'a1' },
+      { text: '#Hello\n#\nWorld', isUndoRedo: false, author: 'a2' },
+      { text: '#Hello\n\nWorld', isUndoRedo: true, author: 'a3' },
+      { text: '#Hello\n#\nWorld', isUndoRedo: true, author: 'a3' },
+    ] as EditDef[];
+    const editList = createEditList(texts, false);
+    expect(editList.toPlainText()).toEqual(texts[texts.length - 1].text);
+    console.log(editList.toString());
+
+    expect(editList.getAuthors(new Span(0, 6), false)).toEqual(new Set(['a1']));
+    expect(editList.getAuthors(new Span(8, 14), false)).toEqual(new Set(['a1']));
+    expect(editList.getAuthors(new Span(7, 7), false)).toEqual(new Set(['a2']));
+  });
+
+  it('should handle undo/redo to empty', () => {
+    const texts = [
+      { text: 'Hello World', isUndoRedo: false, author: 'a1' },
+      { text: 'Hello to the World', isUndoRedo: false, author: 'a2' },
+      { text: '', isUndoRedo: true, author: 'a2' },
+      { text: 'Hello to the World', isUndoRedo: true, author: 'a3' },
+    ] as EditDef[];
+    const editList = createEditList(texts, false);
+    expect(editList.toPlainText()).toEqual(texts[texts.length - 1].text);
+    console.log(editList.toString());
+
+    expect(editList.getAuthors(new Span(0, 5), false)).toEqual(new Set(['a1']));
+    expect(editList.getAuthors(new Span(6, 12), false)).toEqual(new Set(['a2']));
+    expect(editList.getAuthors(new Span(13, 17), false)).toEqual(new Set(['a1']));
+  });
+
 
 });
