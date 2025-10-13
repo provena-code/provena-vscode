@@ -79,8 +79,10 @@ function testFile(name: string, checkReproduction: boolean, checkHistorySearch: 
     if (checkHistorySearch) {
       for (let i = 0; i < textHistory.length; i++) {
         const history = textHistory[i];
-        console.log(`Searching for history item ${i}: ${history.replace(/\n/g, '\\n').replace(/\r/g, '\\r')}`);
         const match = editList.search(history);
+        if (!match) {
+          console.log(`Searching for history item ${i} failed: ${history.replace(/\n/g, '\\n').replace(/\r/g, '\\r')}`);
+        }
         expect(match).not.toBeNull();
       }
     }

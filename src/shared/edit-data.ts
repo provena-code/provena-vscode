@@ -233,10 +233,10 @@ export class EditNode implements EditRange {
             if (nQueryIndex === query.length) {
                 if (subsequentEdit) {
                     // Ensure that this match can lead to the subsequent edit
-                    const matchedEdges = this.getOutEdges().filter(e => {
+                    const matchedEdges = this.getOutEdges().filter(e =>
                         e.child === subsequentEdit &&
-                        e.textIndices.includes(nNodeIndex);
-                    });
+                        e.textIndices.includes(nNodeIndex)
+                    );
                     // If not it isn't a valid match, and we can stop here
                     if (matchedEdges.length === 0) {
                         return null;
