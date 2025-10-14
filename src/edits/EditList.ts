@@ -1,4 +1,5 @@
 import { IChangeEvent } from '../recorder/EventLog';
+import { Author } from '../shared/Author';
 import { EditRange, Span, Metadata, copyEditRange, EditNode, copyMetadata, QueryMatch, QueryParams } from '../shared/edit-data';
 
 /**
@@ -10,7 +11,7 @@ import { EditRange, Span, Metadata, copyEditRange, EditNode, copyMetadata, Query
 export class EditList {
     private edits = [] as EditNode[];
     private head = new EditNode(new Span(0, 0), '', {
-        author: 'DUMMY',
+        author: Author.ExistingText,
         startTime: 0,
         endTime: 0
     });
@@ -26,7 +27,43 @@ export class EditList {
         return this.head.getChildren();
     }
 
-    search(query: string): QueryMatch | null {
+    searchCurrentEdits(query: string): QueryMatch[] {
+        const currentText = this.toPlainText();
+        const allIndices = [];
+        let index = currentText.indexOf(query);
+        while (index !== -1) {
+            allIndices.push(index);
+            index = currentText.indexOf(query, index + 1);
+        }
+        return allIndices.map(startIndex => {
+            const endIndex = startIndex + query.length - 1;
+            let editIndex = this.findLastEditBefore(startIndex) + 1;
+            const matchPath: QueryMatch = [];
+            while (editIndex < this.edits.length) {
+                const edit = this.edits[editIndex];
+                // Bound the range to be within this text
+                const rangeSubset = new Span(
+                    Math.max(edit.range.start, startIndex),
+                    Math.min(edit.range.end, endIndex)
+                );
+                // QueryResults use local ranges, so shift to be relative to the
+                // start of this edit
+                const localRange = rangeSubset.shift(-edit.range.start);
+                matchPath.push({
+                    node: edit,
+                    range: localRange
+                });
+                // If we've reached the end of the query, stop
+                if (rangeSubset.end === endIndex) {
+                    break;
+                }
+                editIndex++;
+            }
+            return matchPath;
+        });
+    }
+
+    searchHistory(query: string): QueryMatch | null {
         for (const headChild of this.head.getChildren()) {
             const match = headChild.search({ query, exactIndex: false });
             if (match) {
@@ -132,7 +169,7 @@ export class EditList {
         this.head.addChild(child);
     }
 
-    addEdit(changeEvent: IChangeEvent, metadata: Metadata, isUndoOrRedo = false) {
+    addEdit(changeEvent: IChangeEvent, metadata: Metadata, isUndoOrRedo = false, pasteMatch: QueryMatch | null = null) {
         this.trace('Current edits:', this.toStringWithRanges());
 
         const { text, rangeLength, rangeOffset } = changeEvent;
@@ -222,6 +259,33 @@ export class EditList {
                 });
                 this.edits.splice(index, 0, ...nodes);
 
+            } else if (pasteMatch) {
+                this.trace('Using paste match', pasteMatch);
+                const nodes = [];
+                let spanStart = replacedSpan.start;
+                let lastNode = priorEdit;
+                for (const match of pasteMatch) {
+                    const text = match.node.text.substring(match.range.start, match.range.end + 1);
+                    const range = new Span(spanStart, spanStart + text.length);
+                    spanStart += text.length;
+                    const nodeMetadata = {
+                        ...metadata,
+                        author: match.node.metadata.author
+                    };
+                    const newNode = new EditNode(range, text, nodeMetadata);
+                    nodes.push(newNode);
+                    if (lastNode) {
+                        lastNode.addChild(newNode);
+                    }
+                    lastNode = newNode;
+                }
+                if (subsequentEdit) {
+                    if (spanStart !== subsequentEdit.range.start) {
+                        this.logError('Internal error: paste match does not align with subsequent edit', spanStart, subsequentEdit.range.start);
+                    }
+                    nodes[nodes.length - 1].addChild(subsequentEdit);
+                }
+                this.edits.splice(index, 0, ...nodes);
             } else if (priorEdit && priorEdit.metadata.author === metadata.author && priorEdit.range.end === replacedSpan.start &&
                 // We only append if this doesn't delete text and it inserts in an existing gap
                 replacedSpan.start === replacedSpan.end && overlappingEdits.length === 0

@@ -2,12 +2,13 @@
 import * as vscode from 'vscode';
 import { EditList } from '../edits/EditList';
 import { EventRecorder, FileOutputStream } from './EventRecorder';
+import { EditAttributor } from '../edits/EditAttributor';
 
 type FileData = {
     uri: vscode.Uri;
     editList: EditList;
     eventRecorder: EventRecorder;
-    undoStack: EditList[];
+    editAttributor: EditAttributor;
 };
 
 export class FileDataMap {
@@ -21,23 +22,14 @@ export class FileDataMap {
             // Probably at some point this should be initialized
             // from elsewhere, e.g. a passed function
             const stream = new EventRecorder(FileOutputStream.nextToFileUri(fileUri, this.overwrite));
+            const editList = new EditList();
             this.fileDataMap.set(key, {
                 uri: fileUri,
-                editList: new EditList(),
+                editList,
                 eventRecorder: stream,
-                undoStack: [],
+                editAttributor: new EditAttributor(editList)
             });
         }
         return this.fileDataMap.get(key)!;
-    }
-
-    pushUndo(fileUri: vscode.Uri) {
-        const data = this.getFileData(fileUri);
-        data.undoStack.push(data.editList.copy());
-    }
-
-    popUndo(fileUri: vscode.Uri): EditList | undefined {
-        const data = this.getFileData(fileUri);
-        return data.undoStack.pop();
     }
 }

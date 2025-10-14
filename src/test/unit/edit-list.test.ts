@@ -4,7 +4,8 @@ import { join } from "node:path";
 import { EditList } from '../../edits/EditList';
 import { EventLog, IChangeEvent } from '../../recorder/EventLog';
 import { Range, Position } from './vs-code-mock';
-import { EditNode, Span } from '../../shared/edit-data';
+import { EditNode, Metadata, Span } from '../../shared/edit-data';
+import { Author } from '../../shared/Author';
 
 type PositionJson = {
     line: number;
@@ -40,7 +41,7 @@ function testFile(name: string, checkReproduction: boolean, checkHistorySearch: 
   data.forEach(event => {
     if (firstEvent) {
       editList.setInitialText(event.documentText, {
-        author: 'existing-text',
+        author: Author.ExistingText,
         startTime: event.time,
         endTime: event.time,
       });
@@ -65,7 +66,7 @@ function testFile(name: string, checkReproduction: boolean, checkHistorySearch: 
         text: change.text,
       } as IChangeEvent;
       editList.addEdit(realChangeEvent, {
-        author: 'test',
+        author: Author.User,
         startTime: event.time,
         endTime: event.time,
       }, isUndoRedo);
@@ -79,10 +80,10 @@ function testFile(name: string, checkReproduction: boolean, checkHistorySearch: 
     if (checkHistorySearch) {
       for (let i = 0; i < textHistory.length; i++) {
         const history = textHistory[i];
-        const match = editList.search(history);
+        const match = editList.searchHistory(history);
         if (!match) {
           console.log(`Searching for history item ${i}/${textHistory.length}/${data.length} failed: ${history.replace(/\n/g, '\\n').replace(/\r/g, '\\r')}`);
-          editList.search(history);
+          editList.searchHistory(history);
         }
         expect(match).not.toBeNull();
       }
@@ -159,7 +160,7 @@ function createEditList(textDefs: EditDefInput[], silently: boolean): EditList {
 
   const initialMetadata = createGenericMetadata();
   if (editDefs[0].author) {
-    initialMetadata.author = editDefs[0].author;
+    initialMetadata.author = editDefs[0].author as Author;
   }
   editList.setInitialText(texts[0], initialMetadata);
 
@@ -167,7 +168,7 @@ function createEditList(textDefs: EditDefInput[], silently: boolean): EditList {
     const editDef = editDefs[i + 1];
     const metadata = createGenericMetadata();
     if (editDef.author) {
-      metadata.author = editDef.author;
+      metadata.author = editDef.author as Author;
     }
     console.log('------------------------- Adding Edit -------------------------');
     console.log(edit);
@@ -185,9 +186,9 @@ function extractEdits(texts: string[]) {
   return edits;
 }
 
-function createGenericMetadata() {
+function createGenericMetadata() : Metadata {
   return {
-    author: 'test',
+    author: Author.Unknown,
     startTime: Date.now(),
     endTime: Date.now(),
   };
@@ -322,14 +323,14 @@ function testHistorySearch(changes: string[], additionalSearchTexts: string[] = 
   const editList = createEditList(changes, false);
   for (let i = 0; i < changes.length; i++) {
     const searchText = changes[i];
-    const match = editList.search(searchText);
+    const match = editList.searchHistory(searchText);
     if (!match) {
       console.log(`Failed to find match for history item ${i}: \n${searchText.replace(/\n/g, '\\n').replace(/\r/g, '\\r')}`);
     }
     expect(match).not.toBeNull();
   }
   for (const searchText of additionalSearchTexts) {
-    const match = editList.search(searchText);
+    const match = editList.searchHistory(searchText);
     expect(match).not.toBeNull();
   }
 }

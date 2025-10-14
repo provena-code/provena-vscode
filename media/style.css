@@ -3,12 +3,17 @@
     color: #0F5132;
     border: 2px solid #88a799;
 }
-.author-other  {
+.author-external-paste  {
     background-color: #F8D7DA;
     color: #721C24;
     border: 2px solid #af8b8f;
 }
-.author-undo-redo  {
+.author-system  {
+    background-color: #FFF3CD;
+    color: #664D03;
+    border: 2px solid #d6c26d;
+}
+.author-unknown  {
     background-color: #E2E3E5;
     color: #41464B;
     border: 2px solid #B1B3B5;

@@ -5,6 +5,7 @@ import { EditList } from './edits/EditList';
 import { Metadata } from './shared/edit-data';
 import { FileDataMap } from './recorder/FileDataMap';
 import { EditDisplay } from './display/EditDisplay';
+import { Author } from './shared/Author';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -36,7 +37,7 @@ export function activate(context: vscode.ExtensionContext) {
 		const { editList } = fileDataMap.getFileData(document.uri);
 		if (editList.isEmpty()) {
 			editList.setInitialText(document.getText(), {
-				author: 'init',
+				author: Author.ExistingText,
 				startTime: new Date().getTime(),
 				endTime: new Date().getTime(),
 			});
@@ -53,10 +54,9 @@ export function activate(context: vscode.ExtensionContext) {
 	}));
 
 	disposables.push(vscode.workspace.onDidChangeTextDocument(async event => {
-		const { editList, eventRecorder } = fileDataMap.getFileData(event.document.uri);
+		const { editList, eventRecorder, editAttributor } = fileDataMap.getFileData(event.document.uri);
 		eventRecorder.record(event);
 		console.log(`Reason: ${event.reason}, count: ${event.contentChanges.length}`);
-		let author = 'other';
 		const date = new Date().getTime();
 
 		switchActiveEditor(event.document);
@@ -69,38 +69,14 @@ export function activate(context: vscode.ExtensionContext) {
 
 		// }
 
-		const text = await vscode.env.clipboard.readText();
+		const clipboardText = await vscode.env.clipboard.readText();
+		editAttributor.setCopiedText(clipboardText);
+
 		const isUndoOrRedo =
 			event.reason === vscode.TextDocumentChangeReason.Undo ||
 			event.reason === vscode.TextDocumentChangeReason.Redo;
 
-		if (isUndoOrRedo) {
-			// Shouldn't really be used
-			author = 'undo-redo';
-		} else {
-			if (event.contentChanges.length === 1) {
-				if (event.contentChanges[0].text.length <= 3) {
-					author = 'user';
-				}
-				// const clipboardText = vscode.env.clipboard.readText();
-				// const editText = event.contentChanges[0].text;
-				// clipboardText.then(text => {
-				// 	// console.log(`Clipboard text: ${text}, Edit text: ${editText}`);
-				// 	if (text === editText) {
-				// 		// console.log('Pasting from clipboard');
-				// 	}
-				// });
-			}
-		}
-		event.contentChanges.forEach(change => {
-			const metadata : Metadata = {
-				author,
-				startTime: date,
-				endTime: date,
-			};
-			editList.addEdit(change, metadata, isUndoOrRedo);
-			// console.log(`Document changed: ${change.text}, range: ${rangeToString(change.range)}, rangeLength: ${change.rangeLength}`);
-		});
+		editAttributor.addEdits(event.contentChanges, isUndoOrRedo, date);
 		editDisplay.update(editList);
 		// console.log(`Current edits: ${editList.toString()}`);
 	}));

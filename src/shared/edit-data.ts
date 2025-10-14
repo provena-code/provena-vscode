@@ -1,6 +1,7 @@
+import { Author } from "./Author";
 
 export type Metadata = {
-    author: string;
+    author: Author;
     startTime: number;
     endTime: number;
 }
