@@ -1,10 +1,11 @@
 
+import { Author } from '../../shared/Author';
 import { EditNode, Span } from '../../shared/edit-data';
 import { assert, expect, test, } from 'vitest';
 
 function createNode(text: string): EditNode {
     return new EditNode(new Span(0, text.length), text, {
-        author: 'test',
+        author: Author.Unknown,
         startTime: Date.now(),
         endTime: Date.now(),
     });
