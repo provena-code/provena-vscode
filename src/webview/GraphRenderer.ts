@@ -10,8 +10,11 @@ export class GraphRenderer {
     }
 
     public init() {
+        if (!this.rootElement) {
+            return;
+        }
         // initialize d3 and dagreD3
-        const svg = d3.select(this.rootElement).append("svg")
+        d3.select(this.rootElement).append("svg")
             .attr("width", 800)
             .attr("height", 600);
     }
@@ -29,6 +32,9 @@ export class GraphRenderer {
     }
 
     public render(editList: EditNode[]) {
+        if (!this.rootElement) {
+            return;
+        }
         const g = new dagreD3.graphlib.Graph().setGraph({})
             .setDefaultEdgeLabel(function() { return {}; });
 

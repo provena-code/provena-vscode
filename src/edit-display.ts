@@ -52,10 +52,10 @@ export class EditDisplay {
             </head>
             <body>
             <div id="root">
-                <div id="graph-container"></div>
                 <div>
                     <pre id="code-container"></pre>
                 </div>
+                <!-- <div id="graph-container"></div> -->
             </div>
             <script nonce="${nonce}" src="${scriptUri}"></script>
             </body>

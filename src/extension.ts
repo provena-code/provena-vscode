@@ -76,7 +76,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 		if (isUndoOrRedo) {
 			// Shouldn't really be used
-			author = 'user';
+			author = 'undo-redo';
 		} else {
 			if (event.contentChanges.length === 1) {
 				if (event.contentChanges[0].text.length <= 3) {

@@ -1,4 +1,3 @@
-import { deprecate } from 'node:util';
 import { IChangeEvent } from './recorder-util';
 import { EditRange, Span, Metadata, copyEditRange, EditNode, copyMetadata, QueryMatch, QueryParams } from './shared/edit-data';
 
@@ -174,8 +173,6 @@ export class EditList {
             }
         }
 
-        this.trace('Removing edits:', containedEdits.map(e => e.text + `${e.range}`).join(', '));
-
         // Remove contained edits, which are now superseded by this edit
         if (containedEdits.length > 0) {
             let before = this.findLastEditBefore(replacedSpan.start);
@@ -197,7 +194,7 @@ export class EditList {
                 this.trace('Contained edits:', containedEdits.map(e => e.text + `${e.range}`).join(', '));
                 throw new Error('Internal error: mismatch in contained edits');
             }
-            this.trace('Removing edits:', containedEdits);
+            this.trace('Removing edits:\n', containedEdits.map(e => e.text + `${e.range}`).join(', '));
             this.edits.splice(before + 1, expectedLength);
         }
 
