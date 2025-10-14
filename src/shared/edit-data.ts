@@ -139,9 +139,11 @@ export class EditNode implements EditRange {
                 .map(index => index - leftEdit.text.length);
             if (leftIndices.length > 0) {
                 leftEdit.outEdges.push({ textIndices: leftIndices, child: edge.child });
+                edge.child.parents.push(leftEdit);
             }
             if (rightIndices.length > 0) {
                 rightEdit.outEdges.push({ textIndices: rightIndices, child: edge.child });
+                edge.child.parents.push(rightEdit);
             }
         }
         leftEdit.addChild(rightEdit);

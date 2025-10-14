@@ -301,8 +301,18 @@ export class EditList {
             }
         }
         if (!matchPath) {
+            // TODO: Remove; juts for debugging
+            // this.findUndoOrRedoMatch(true, index, subsequentEdit, text);
             this.logError('Internal error: undo/redo edit not found in subsequent edit');
             return null;
+        }
+
+        // TODO: I can't think of any way this would happen. If so,
+        // then I could definitely optimize search by requiring whole ranges.
+        for (const match of matchPath) {
+            if (match.range.start !== 0 || match.range.end !== match.node.text.length - 1) {
+                this.logError('Internal error: undo/redo match is not a full edit');
+            }
         }
 
         // Split nodes
