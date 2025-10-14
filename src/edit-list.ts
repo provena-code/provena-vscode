@@ -266,7 +266,7 @@ export class EditList {
 
         // this.defragment();
 
-        if (!this.head.getChildren().includes(this.edits[0])) {
+        if (this.edits.length > 0 && !this.head.getChildren().includes(this.edits[0])) {
             this.head.addChild(this.edits[0]);
         }
 
@@ -281,15 +281,16 @@ export class EditList {
         // TODO: Handle index = 0
         const priorEdit = index === 0 ? this.head : this.edits[index - 1];
 
-        const ignoreMap: Map<EditNode, number[]> = new Map();
-        for (let i = index; i < this.edits.length; i++) {
-            // Don't search any edits that are already active; these
-            // cannot be the target of an undo/redo operation
-            ignoreMap.set(this.edits[i], [0]);
-        }
-
         let matchPath;
         for (const edge of priorEdit.getOutEdges()) {
+            // Recreate the ignoreMap each time, so it doesn't accumulate
+            const ignoreMap: Map<EditNode, number[]> = new Map();
+            for (let i = index; i < this.edits.length; i++) {
+                // Don't search any edits that are already active; these
+                // cannot be the target of an undo/redo operation
+                ignoreMap.set(this.edits[i], [0]);
+            }
+
             // Only look for children that come from the very end of this edit
             if (!edge.textIndices.includes(priorEdit.text.length)) {
                 continue;
