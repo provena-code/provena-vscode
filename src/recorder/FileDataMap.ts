@@ -1,7 +1,7 @@
 
 import * as vscode from 'vscode';
-import { EditList } from './edit-list';
-import { EventRecorder, FileOutputStream } from './recorder';
+import { EditList } from '../edits/EditList';
+import { EventRecorder, FileOutputStream } from './EventRecorder';
 
 type FileData = {
     uri: vscode.Uri;

@@ -2,7 +2,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { EventLog } from './recorder-util';
+import { EventLog } from './EventLog';
 
 interface OutputStream {
     write(data: string): void;

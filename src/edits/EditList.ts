@@ -1,5 +1,5 @@
-import { IChangeEvent } from './recorder-util';
-import { EditRange, Span, Metadata, copyEditRange, EditNode, copyMetadata, QueryMatch, QueryParams } from './shared/edit-data';
+import { IChangeEvent } from '../recorder/EventLog';
+import { EditRange, Span, Metadata, copyEditRange, EditNode, copyMetadata, QueryMatch, QueryParams } from '../shared/edit-data';
 
 /**
  * Manages a history of edits with associated metadata from a code file.

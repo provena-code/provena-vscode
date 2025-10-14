@@ -1,8 +1,8 @@
 
 import * as vscode from 'vscode';
-import { EditList } from './edit-list';
+import { EditList } from '../edits/EditList';
 import * as devalue from 'devalue';
-import { EditNode, Span, toPOJO } from './shared/edit-data';
+import { EditNode, Span, toPOJO } from '../shared/edit-data';
 
 export class EditDisplay {
 

@@ -1,10 +1,10 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-import { EditList } from './edit-list';
+import { EditList } from './edits/EditList';
 import { Metadata } from './shared/edit-data';
-import { FileDataMap } from './files';
-import { EditDisplay } from './edit-display';
+import { FileDataMap } from './recorder/FileDataMap';
+import { EditDisplay } from './display/EditDisplay';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
