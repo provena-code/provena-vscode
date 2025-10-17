@@ -2,13 +2,13 @@
 import * as vscode from 'vscode';
 import { EditList } from '../edits/EditList';
 import { EventRecorder, FileOutputStream } from './EventRecorder';
-import { EditAttributor } from '../edits/EditAttributor';
+import { EditListBuilder } from '../edits/EditAttributor';
 
 type FileData = {
     uri: vscode.Uri;
     editList: EditList;
     eventRecorder: EventRecorder;
-    editAttributor: EditAttributor;
+    editAttributor: EditListBuilder;
 };
 
 export class FileDataMap {
@@ -27,7 +27,7 @@ export class FileDataMap {
                 uri: fileUri,
                 editList,
                 eventRecorder: stream,
-                editAttributor: new EditAttributor(editList)
+                editAttributor: new EditListBuilder(editList)
             });
         }
         return this.fileDataMap.get(key)!;

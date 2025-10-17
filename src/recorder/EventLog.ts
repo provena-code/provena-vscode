@@ -1,17 +1,36 @@
 
-import * as vscode from 'vscode';
+export type EventBase = {
+    type: string;
+    time: number;
+}
+
+export type DocumentEventBase = EventBase & {
+    documentUri: string;
+    documentText?: string;
+}
 
 export interface IChangeEvent {
-    range: vscode.Range;
     text: string;
     rangeLength: number;
     rangeOffset: number;
 }
 
-export type EventLog = {
+export type EditEvent = DocumentEventBase & {
     contentChanges: readonly IChangeEvent[];
+    isUndoOrRedo: boolean;
     reason: number | undefined;
-    documentText: string;
-    documentUri: string;
-    time: number;
 };
+
+export type CopyEvent = EventBase & {
+    copiedText: string;
+}
+
+export type SaveEvent = DocumentEventBase & {
+
+    // Require text, since it should always be recorded on save
+    documentText: string;
+}
+
+export type FocusDocumentEvent = DocumentEventBase & {
+    type: "FocusDocumentEvent"
+}

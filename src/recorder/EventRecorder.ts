@@ -2,7 +2,6 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { EventLog } from './EventLog';
 
 interface OutputStream {
     write(data: string): void;
@@ -51,7 +50,7 @@ export class EventRecorder {
     private hasInitialized = false;
 
     constructor(
-        private readonly outputStream: OutputStream
+        private readonly outputStream: OutputStream,
     ) {
         if (this.outputStream.isNewFile) {
             this.outputStream.write('[\n');

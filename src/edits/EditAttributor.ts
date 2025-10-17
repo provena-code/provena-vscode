@@ -7,7 +7,7 @@ class CopiedText {
     constructor(public readonly text: string, public readonly match: QueryMatch | null) {}
 }
 
-export class EditAttributor {
+export class EditListBuilder {
 
     private copiedText: CopiedText | null = null;
 
