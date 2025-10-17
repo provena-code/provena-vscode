@@ -2,7 +2,7 @@ import { assert, expect, test, } from 'vitest';
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { EditList } from '../../edits/EditList';
-import { EventLog, IChangeEvent } from '../../recorder/event-types';
+import { EventLog, IChangeEvent } from '../../edits/event-types';
 import { Range, Position } from './vs-code-mock';
 import { EditNode, Metadata, Span } from '../../shared/edit-data';
 import { Author } from '../../shared/Author';

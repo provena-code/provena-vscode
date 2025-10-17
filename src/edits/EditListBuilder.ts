@@ -1,13 +1,14 @@
-import { IChangeEvent } from "../recorder/event-types";
+import { COPY_EVENT_TYPE, CopyEvent, EDIT_EVENT_TYPE, EditEvent, IChangeEvent, LogEvent } from "./event-types";
 import { Author } from "../shared/Author";
 import { QueryMatch } from "../shared/edit-data";
 import { EditList } from "./EditList";
+import { EventListener } from "./EventListener";
 
 class CopiedText {
     constructor(public readonly text: string, public readonly match: QueryMatch | null) {}
 }
 
-export class EditListBuilder {
+export class EditListBuilder implements EventListener {
 
     private copiedText: CopiedText | null = null;
 
@@ -45,7 +46,20 @@ export class EditListBuilder {
         return Author.System;
     }
 
-    public addEdits(edits: readonly IChangeEvent[], isUndoOrRedo: boolean, time = new Date().getTime()) {
+    public onEvent(event: LogEvent) {
+        switch (event.type) {
+            case COPY_EVENT_TYPE:
+                this.addCopyEvent(event);
+                break;
+            case EDIT_EVENT_TYPE:
+                this.addEditEvent(event);
+                break;
+        }
+    }
+
+    public addEditEvent(event: EditEvent) {
+        const { contentChanges: edits, isUndoOrRedo = false, time } = event;
+
         if (edits.length === 0) {
             return;
         }
@@ -68,7 +82,8 @@ export class EditListBuilder {
 
     }
 
-    public setCopiedText(text: string) {
+    public addCopyEvent(copyEvent: CopyEvent) {
+        const text = copyEvent.copiedText;
         if (!text || text.length === 0) {
             this.copiedText = null;
             return;

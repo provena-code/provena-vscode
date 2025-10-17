@@ -6,6 +6,7 @@ import { Metadata } from './shared/edit-data';
 import { FileDataMap } from './recorder/FileDataMap';
 import { EditDisplay } from './display/EditDisplay';
 import { Author } from './shared/Author';
+import { CopyEvent } from './edits/event-types';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -53,30 +54,19 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	}));
 
+	let lastCopiedText: string | null = null;
+
 	disposables.push(vscode.workspace.onDidChangeTextDocument(async event => {
-		const { editList, eventRecorder, editAttributor } = fileDataMap.getFileData(event.document.uri);
-		eventRecorder.recordDocumentChange(event);
-		console.log(`Reason: ${event.reason}, count: ${event.contentChanges.length}`);
-		const date = new Date().getTime();
+		const { editList, eventRecorder } = fileDataMap.getFileData(event.document.uri);
 
 		switchActiveEditor(event.document);
 
-		// if (event.reason === vscode.TextDocumentChangeReason.Undo) {
-		// 	author = 'user';
-		// 	fileDataMap.pushUndo(event.document.uri);
-		// 	// Then proceed with the edit (which will be a )
-		// } else if (event.reason === vscode.TextDocumentChangeReason.Redo) {
-
-		// }
-
 		const clipboardText = await vscode.env.clipboard.readText();
-		editAttributor.setCopiedText(clipboardText);
-
-		const isUndoOrRedo =
-			event.reason === vscode.TextDocumentChangeReason.Undo ||
-			event.reason === vscode.TextDocumentChangeReason.Redo;
-
-		editAttributor.addEdits(event.contentChanges, isUndoOrRedo, date);
+		if (clipboardText !== lastCopiedText) {
+			eventRecorder.recordCopy(clipboardText);
+			lastCopiedText = clipboardText;
+		}
+		eventRecorder.recordDocumentChange(event);
 		editDisplay.update(editList);
 		// console.log(`Current edits: ${editList.toString()}`);
 	}));

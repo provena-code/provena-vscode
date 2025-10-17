@@ -21,33 +21,39 @@ const IChangeEvent = z.object({
 
 // Specific event schemas
 
+export const EDIT_EVENT_TYPE = 'EditEvent';
 export const EditEvent = DocumentEventBase.extend({
-  type: z.literal('EditEvent'),
+  type: z.literal(EDIT_EVENT_TYPE),
   contentChanges: z.array(IChangeEvent),
   isUndoOrRedo: z.boolean().optional(),
 });
 
+export const COPY_EVENT_TYPE = 'CopyEvent';
 export const CopyEvent = EventBase.extend({
-  type: z.literal('CopyEvent'),
+  type: z.literal(COPY_EVENT_TYPE),
   copiedText: z.string(),
 });
 
+export const SAVE_EVENT_TYPE = 'SaveEvent'
 export const SaveEvent = DocumentEventBase.extend({
-  type: z.literal('SaveEvent'),
+  type: z.literal(SAVE_EVENT_TYPE),
   documentText: z.string(), // required on save
 });
 
+export const FOCUS_EVENT_TYPE = 'FocusDocumentEvent';
 export const FocusDocumentEvent = DocumentEventBase.extend({
-  type: z.literal('FocusDocumentEvent'),
+  type: z.literal(FOCUS_EVENT_TYPE),
 });
 
-// Discriminated union of all events
-export const LogEvent = z.discriminatedUnion('type', [
+const eventTypes = [
   EditEvent,
   CopyEvent,
   SaveEvent,
   FocusDocumentEvent,
-]);
+] as const;
+
+// Discriminated union of all events
+export const LogEvent = z.discriminatedUnion('type', eventTypes);
 
 // TypeScript types inferred from Zod
 export type IChangeEvent = z.infer<typeof IChangeEvent>;
@@ -56,3 +62,4 @@ export type CopyEvent = z.infer<typeof CopyEvent>;
 export type SaveEvent = z.infer<typeof SaveEvent>;
 export type FocusDocumentEvent = z.infer<typeof FocusDocumentEvent>;
 export type LogEvent = z.infer<typeof LogEvent>;
+

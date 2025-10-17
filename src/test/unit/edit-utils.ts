@@ -1,6 +1,6 @@
 import { assert } from "vitest";
 import { EditList } from "../../edits/EditList";
-import { IChangeEvent } from "../../recorder/event-types";
+import { IChangeEvent } from "../../edits/event-types";
 import { Author } from "../../shared/Author";
 import { EditNode, Metadata } from "../../shared/edit-data";
 import { Position, Range } from "./vs-code-mock";

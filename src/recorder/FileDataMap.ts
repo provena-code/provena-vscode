@@ -2,7 +2,7 @@
 import * as vscode from 'vscode';
 import { EditList } from '../edits/EditList';
 import { EventRecorder, FileOutputStream } from './EventRecorder';
-import { EditListBuilder } from '../edits/EditAttributor';
+import { EditListBuilder } from '../edits/EditListBuilder';
 
 type FileData = {
     uri: vscode.Uri;
@@ -23,6 +23,8 @@ export class FileDataMap {
             // from elsewhere, e.g. a passed function
             const stream = new EventRecorder(FileOutputStream.nextToFileUri(fileUri, this.overwrite));
             const editList = new EditList();
+            const editListBuilder = new EditListBuilder(editList);
+            stream.addEventListener(editListBuilder);
             this.fileDataMap.set(key, {
                 uri: fileUri,
                 editList,

@@ -1,5 +1,5 @@
 import { assert, expect, test, } from 'vitest';
-import { EditListBuilder } from '../../edits/EditAttributor';
+import { EditListBuilder } from '../../edits/EditListBuilder';
 import { EditList } from '../../edits/EditList';
 import { createEditList, EditDefInput, extractEdits } from './edit-utils';
 

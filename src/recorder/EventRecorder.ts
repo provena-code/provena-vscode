@@ -2,7 +2,8 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { EditEvent, FocusDocumentEvent, IChangeEvent, LogEvent } from './event-types';
+import { COPY_EVENT_TYPE, EDIT_EVENT_TYPE, EditEvent, FOCUS_EVENT_TYPE, FocusDocumentEvent, IChangeEvent, LogEvent } from '../edits/event-types';
+import { EventListener } from '../edits/EventListener';
 
 interface OutputStream {
     write(data: string): void;
@@ -46,9 +47,20 @@ export class FileOutputStream implements OutputStream {
 
 }
 
+class EventWriter implements EventListener {
+    constructor(private readonly outputStream: OutputStream) {}
+
+    onEvent(event: LogEvent): void {
+        const json = JSON.stringify(event);
+        this.outputStream.write(json);
+        this.outputStream.write(',\n');
+    }
+}
 
 export class EventRecorder {
     private hasInitialized = false;
+
+    private readonly eventListeners: EventListener[] = [];
 
     constructor(
         private readonly outputStream: OutputStream,
@@ -57,29 +69,46 @@ export class EventRecorder {
         if (this.outputStream.isNewFile) {
             this.outputStream.write('[\n');
         }
+        this.eventListeners.push(new EventWriter(outputStream));
+    }
+
+    public addEventListener(eventListener: EventListener) {
+        this.eventListeners.push(eventListener);
+    }
+
+    getEventBaseData() {
+        return {
+            time: new Date().getTime(),
+        };
     }
 
     getDocumentData(document: vscode.TextDocument) {
         const text = this.alwaysRecordDocumentText ? document.getText() : undefined;
         return {
+            ...this.getEventBaseData(),
             documentText: text,
             documentUri: document.uri.toString(),
-            time: new Date().getTime(),
         };
     }
 
-    writeData(eventData: LogEvent) {
-        const json = JSON.stringify(eventData);
-        this.outputStream.write(json);
-        this.outputStream.write(',\n');
+    recordData(eventData: LogEvent) {
+        this.eventListeners.forEach(l => l.onEvent(eventData));
     }
 
     recordDocumentFocused(document: vscode.TextDocument) {
-        this.writeData({
-            type: 'FocusDocumentEvent',
+        this.recordData({
+            type: FOCUS_EVENT_TYPE,
             ...this.getDocumentData(document),
         } as FocusDocumentEvent);
         this.hasInitialized = true;
+    }
+
+    recordCopy(copiedText: string) {
+        this.recordData({
+            type: COPY_EVENT_TYPE,
+            ...this.getEventBaseData(),
+            copiedText,
+        });
     }
 
     recordDocumentChange(event: vscode.TextDocumentChangeEvent) {
@@ -91,12 +120,12 @@ export class EventRecorder {
 
         // flatten the event to json
         const eventData = {
-            type: 'EditEvent',
+            type: EDIT_EVENT_TYPE,
             ...this.getDocumentData(event.document),
             isUndoOrRedo: event.reason === vscode.TextDocumentChangeReason.Redo ||
                 event.reason === vscode.TextDocumentChangeReason.Undo,
             contentChanges,
         } as EditEvent;
-        this.writeData(eventData);
+        this.recordData(eventData);
     }
 }
