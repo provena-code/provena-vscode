@@ -1,9 +1,9 @@
 import { assert } from "vitest";
 import { EditList } from "../../edits/EditList";
-import { IChangeEvent } from "../../edits/event-types";
+import { COPY_EVENT_TYPE, CopyEvent, EDIT_EVENT_TYPE, EditEvent, FOCUS_EVENT_TYPE, FocusDocumentEvent, IChangeEvent, LogEvent } from "../../edits/event-types";
 import { Author } from "../../shared/Author";
 import { EditNode, Metadata } from "../../shared/edit-data";
-import { Position, Range } from "./vs-code-mock";
+import { EditListBuilder } from "../../edits/EditListBuilder";
 
 /**
  * Extracts the edit information between two strings.
@@ -36,10 +36,6 @@ export function extractEdit(s0: string, s1: string): IChangeEvent {
     replacedEnd = 0;
   }
   return {
-    range: new Range(
-      new Position(replacedStart, 0),
-      new Position(replacedEnd, 0)
-    ),
     rangeLength,
     rangeOffset: replacedStart,
     text: insertedText,
@@ -98,14 +94,46 @@ function getEdgesRecursive(node: EditNode, from: string, to: string, edges: [Edi
   return edges;
 }
 
-export function createEditList(textDefs: EditDefInput[], silently: boolean): EditList {
+export function createEditEvent(change: IChangeEvent, isUndoOrRedo: boolean = false) : EditEvent {
+  return {
+    type: EDIT_EVENT_TYPE,
+    time: 0,
+    documentUri: 'test-document',
+    contentChanges: [change],
+    isUndoOrRedo,
+  };
+}
 
+export function createFocusEvent(initialText: string): FocusDocumentEvent {
+  return {
+    type: FOCUS_EVENT_TYPE,
+    time: 0,
+    documentUri: 'test-document',
+    documentText: initialText,
+  };
+}
+
+export function createCopyEvent(copiedText: string): CopyEvent {
+  return {
+    type: COPY_EVENT_TYPE,
+    time: 0,
+    copiedText: copiedText,
+  };
+}
+
+export function createEditEvents(textDefs: EditDefInput[]): LogEvent[] {
   // Remove undo/redo markers from texts
   const texts = textDefs.map(t => t instanceof Object ? t.text : t);
   const editDefs = textDefs.map(t => t instanceof Object ? t : { text: t });
 
   var edits = extractEdits(texts);
+  const initEvent = createFocusEvent(texts[0]);
+  const editEvents = edits.map((e, i) => createEditEvent(e, editDefs[i].isUndoRedo));
 
+  return [initEvent, ...editEvents];
+}
+
+function createNewEditList(silently = false) {
   const editList = new EditList();
   if (!silently) {
     editList.trace = (...args: any[]) => { console.log(...args); };
@@ -114,6 +142,36 @@ export function createEditList(textDefs: EditDefInput[], silently: boolean): Edi
     console.error(...args);
     assert.fail('Error logged during test');
   };
+  return editList;
+}
+
+export function createEditListWithEvents(textDefsOrEdits: (EditDefInput | EditEvent)[], silently: boolean) {
+  const isTextEdit = textDefsOrEdits.map(x => !Object.keys(x).includes('type'));
+  const textDefs = textDefsOrEdits.filter((x, i) => isTextEdit[i]) as EditDefInput[];
+  const editEvents = createEditEvents(textDefs);
+  const events = [];
+  let editEventIndex = 0;
+  for (let i = 0; i < textDefsOrEdits.length; i++) {
+    if (isTextEdit[i]) {
+      events.push(editEvents[editEventIndex++]);
+    } else {
+      events.push(textDefsOrEdits[i] as EditEvent);
+    }
+  }
+  const editListBuilder = new EditListBuilder(createNewEditList(silently));
+  events.forEach(e => editListBuilder.onEvent(e));
+  return editListBuilder.editList;
+}
+
+export function createEditList(textDefs: EditDefInput[], silently: boolean): EditList {
+
+  // Remove undo/redo markers from texts
+  const texts = textDefs.map(t => t instanceof Object ? t.text : t);
+  const editDefs = textDefs.map(t => t instanceof Object ? t : { text: t });
+
+  var edits = extractEdits(texts);
+
+  const editList = createNewEditList(silently);
 
   const initialMetadata = createGenericMetadata();
   if (editDefs[0].author) {
