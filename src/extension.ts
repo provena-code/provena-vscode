@@ -55,7 +55,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	disposables.push(vscode.workspace.onDidChangeTextDocument(async event => {
 		const { editList, eventRecorder, editAttributor } = fileDataMap.getFileData(event.document.uri);
-		eventRecorder.record(event);
+		eventRecorder.recordDocumentChange(event);
 		console.log(`Reason: ${event.reason}, count: ${event.contentChanges.length}`);
 		const date = new Date().getTime();
 

@@ -2,6 +2,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import { EditEvent, FocusDocumentEvent, IChangeEvent, LogEvent } from './event-types';
 
 interface OutputStream {
     write(data: string): void;
@@ -51,6 +52,7 @@ export class EventRecorder {
 
     constructor(
         private readonly outputStream: OutputStream,
+        public readonly alwaysRecordDocumentText = true,
     ) {
         if (this.outputStream.isNewFile) {
             this.outputStream.write('[\n');
@@ -58,38 +60,43 @@ export class EventRecorder {
     }
 
     getDocumentData(document: vscode.TextDocument) {
+        const text = this.alwaysRecordDocumentText ? document.getText() : undefined;
         return {
-            documentText: document.getText(),
+            documentText: text,
             documentUri: document.uri.toString(),
             time: new Date().getTime(),
         };
     }
 
-    writeData(data: EventLog) {
-        const json = JSON.stringify(data);
+    writeData(eventData: LogEvent) {
+        const json = JSON.stringify(eventData);
         this.outputStream.write(json);
         this.outputStream.write(',\n');
     }
 
-    init(document: vscode.TextDocument) {
+    recordDocumentFocused(document: vscode.TextDocument) {
         this.writeData({
+            type: 'FocusDocumentEvent',
             ...this.getDocumentData(document),
-            contentChanges: [],
-            reason: undefined,
-        } as EventLog);
+        } as FocusDocumentEvent);
         this.hasInitialized = true;
     }
 
-    record(event: vscode.TextDocumentChangeEvent) {
+    recordDocumentChange(event: vscode.TextDocumentChangeEvent) {
         if (this.outputStream.isNewFile && !this.hasInitialized) {
-            this.init(event.document);
+            this.recordDocumentFocused(event.document);
         }
+
+        const contentChanges: readonly IChangeEvent[] = event.contentChanges;
+
         // flatten the event to json
         const eventData = {
-            ...event,
-            document: undefined,
+            type: 'EditEvent',
             ...this.getDocumentData(event.document),
-        };
+            isUndoOrRedo: event.reason === vscode.TextDocumentChangeReason.Redo ||
+                event.reason === vscode.TextDocumentChangeReason.Undo,
+            contentChanges,
+        } as EditEvent;
         this.writeData(eventData);
     }
 }

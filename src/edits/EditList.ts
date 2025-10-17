@@ -1,4 +1,4 @@
-import { IChangeEvent } from '../recorder/EventLog';
+import { IChangeEvent } from '../recorder/event-types';
 import { Author } from '../shared/Author';
 import { EditRange, Span, Metadata, copyEditRange, EditNode, copyMetadata, QueryMatch, QueryParams } from '../shared/edit-data';
 

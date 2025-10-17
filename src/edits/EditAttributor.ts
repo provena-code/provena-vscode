@@ -1,4 +1,4 @@
-import { IChangeEvent } from "../recorder/EventLog";
+import { IChangeEvent } from "../recorder/event-types";
 import { Author } from "../shared/Author";
 import { QueryMatch } from "../shared/edit-data";
 import { EditList } from "./EditList";
