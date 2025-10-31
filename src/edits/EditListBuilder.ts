@@ -1,11 +1,27 @@
 import { COPY_EVENT_TYPE, CopyEvent, EDIT_EVENT_TYPE, EditEvent, IChangeEvent, LogEvent } from "./event-types";
 import { Author } from "../shared/Author";
-import { QueryMatch } from "../shared/edit-data";
+import { QueryMatch, Span } from "../shared/edit-data";
 import { EditList } from "./EditList";
 import { EventListener } from "./EventListener";
 
 class CopiedText {
     constructor(public readonly text: string, public readonly match: QueryMatch | null) {}
+}
+
+class AttributionConfig {
+    public constructor(
+        /** Any inserted text with a length under this threshold is considered a user edit. */
+        public userEditThreshold: number = 5,
+
+        /** Whether to remove redundant text changes when replacing text.
+         * Copilot often replaces full lines of text, even when it is only inserting
+         * a small amount of new text. Enabling this option helps reduce the number of
+         * misleading edits created in these cases.
+        */
+        public removeRedundantTextChanges: boolean = true,
+        /** Minimum length of matching text to consider when removing redundant text changes. */
+        public minRedundantTextLength: number = 3,
+    ) {}
 }
 
 export class EditListBuilder implements EventListener {
@@ -16,7 +32,10 @@ export class EditListBuilder implements EventListener {
         return this.copiedText?.text;
     }
 
-    constructor(public readonly editList: EditList) {}
+    constructor(
+        public readonly editList: EditList, 
+        public readonly config: AttributionConfig = new AttributionConfig()
+    ) {}
 
     private getAuthor(edits: readonly IChangeEvent[], isUndoOrRedo: boolean): Author {
         if (isUndoOrRedo) {
@@ -35,7 +54,7 @@ export class EditListBuilder implements EventListener {
 
         // Let short text edits be from the user, regardless
         // of the source
-        if (edit.text.length < 5) {
+        if (edit.text.trim().length < this.config.userEditThreshold) {
             return Author.User;
         }
 
@@ -57,6 +76,57 @@ export class EditListBuilder implements EventListener {
         }
     }
 
+    /**
+     * Modifies the given change event to remove any redundant text changes, where existing text is
+     * replaced with identical text. 
+     * For example, if the existing text is "Hello World" and the change event replaces it with
+     * "Hello New World", the redundant "Hello " and " World" parts will be removed, resulting in
+     * a change event that only inserts "New" at the appropriate position.
+     * @param changeEvent The original change event to replace
+     * @returns The original or modified change event with redundant text removed, or null if no change remains.
+     */
+    public removeRedundantTextChanges(changeEvent: IChangeEvent): IChangeEvent | null {
+        const { text, rangeLength, rangeOffset } = changeEvent;
+        // If you're note deleting text, or inserting more text than you're deleting,
+        // there's no redundancy to remove.
+        if (rangeLength === 0) return changeEvent;
+
+        const existingText = this.editList.getTextInRangeInclusive(new Span(rangeOffset, rangeOffset + rangeLength));
+
+        let sharedStartingLength = 0;
+        while (sharedStartingLength < text.length &&
+               sharedStartingLength < existingText.length &&
+               text[sharedStartingLength] === existingText[sharedStartingLength]) {
+            sharedStartingLength++;
+        }
+
+        let sharedEndingLength = 0;
+        while (sharedEndingLength + sharedStartingLength < text.length &&
+               sharedEndingLength + sharedStartingLength < existingText.length &&
+               text[text.length - 1 - sharedEndingLength] === existingText[existingText.length - 1 - sharedEndingLength]) {
+            sharedEndingLength++;
+        }
+
+        if (sharedStartingLength + sharedEndingLength > existingText.length) {
+            // This occurs when the prefix and suffix overlap, so we reduce the suffix length
+            sharedEndingLength = existingText.length - sharedStartingLength;
+        }
+        
+        const newText = text.substring(sharedStartingLength, text.length - sharedEndingLength);
+        const newRangeLength = existingText.length - sharedStartingLength - sharedEndingLength;
+
+        // If there's no actual change, return null
+        if (newText.length === 0 && newRangeLength === 0) {
+            return null;
+        }
+
+        return {
+            text: newText,
+            rangeOffset: rangeOffset + sharedStartingLength,
+            rangeLength: newRangeLength,
+        };
+    }
+
     public addEditEvent(event: EditEvent) {
         const { contentChanges: edits, isUndoOrRedo = false, time } = event;
 
@@ -66,10 +136,19 @@ export class EditListBuilder implements EventListener {
 
         const author = this.getAuthor(edits, isUndoOrRedo);
 
-        for (const edit of edits) {
+        for (const originalEdit of edits) {
             let match: QueryMatch | null = null;
             if (author === Author.ExternalPaste && !isUndoOrRedo && this.copiedText) {
                 match = this.copiedText.match;
+            }
+
+            let edit = originalEdit
+            if (this.config.removeRedundantTextChanges && !match && !isUndoOrRedo) {
+                let newEdit = this.removeRedundantTextChanges(originalEdit);
+                if (!newEdit) {
+                    continue;
+                }
+                edit = newEdit;
             }
 
             const metadata = {

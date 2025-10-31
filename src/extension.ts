@@ -57,6 +57,8 @@ export function activate(context: vscode.ExtensionContext) {
 	let lastCopiedText: string | null = null;
 
 	disposables.push(vscode.workspace.onDidChangeTextDocument(async event => {
+        console.log(event);
+
 		const { editList, eventRecorder } = fileDataMap.getFileData(event.document.uri);
 
 		switchActiveEditor(event.document);

@@ -116,13 +116,26 @@ export class EditList {
         return result;
     }
 
-    public getAuthors(span: Span, proper: boolean): Set<string> {
+    public getAuthors(span: Span, exclusive: boolean): Set<string> {
         const authors = new Set<string>();
-        const edits = this.findEditsWithinRange(span, proper);
+        const edits = this.findEditsWithinRange(span, exclusive);
         for (const edit of edits) {
             authors.add(edit.metadata.author);
         }
         return authors;
+    }
+
+    public getTextInRangeInclusive(span: Span): string {
+        const edits = this.findEditsWithinRange(span, false);
+        let result = '';
+        for (const edit of edits) {
+            const overlapStart = Math.max(edit.range.start, span.start);
+            const overlapEnd = Math.min(edit.range.end, span.end);
+            const localStart = overlapStart - edit.range.start;
+            const localEnd = overlapEnd - edit.range.start;
+            result += edit.text.substring(localStart, localEnd);
+        }
+        return result;
     }
 
     private findLastEditBefore(position: number): number {
