@@ -94,6 +94,29 @@ function getEdgesRecursive(node: EditNode, from: string, to: string, edges: [Edi
   return edges;
 }
 
+export function createUserEditEvents(change: IChangeEvent): EditEvent[] {
+  if (change.text.length === 0) return [createEditEvent(change)];
+  const events: EditEvent[] = [];
+  if (change.rangeLength > 0) {
+    // Deletion event
+    const deletionEvent = createEditEvent({
+      rangeOffset: change.rangeOffset,
+      rangeLength: change.rangeLength,
+      text: '',
+    });
+    events.push(deletionEvent);
+  }
+  for (let i = 0; i < change.text.length; i++) {
+    const charChange: IChangeEvent = {
+      rangeOffset: change.rangeOffset + i,
+      rangeLength: 0,
+      text: change.text[i],
+    };
+    events.push(createEditEvent(charChange));
+  }
+  return events;
+}
+
 export function createEditEvent(change: IChangeEvent, isUndoOrRedo: boolean = false) : EditEvent {
   return {
     type: EDIT_EVENT_TYPE,
@@ -133,7 +156,7 @@ export function createEditEvents(textDefs: EditDefInput[]): LogEvent[] {
   return [initEvent, ...editEvents];
 }
 
-function createNewEditList(silently = false) {
+export function createNewEditList(silently = false) {
   const editList = new EditList();
   if (!silently) {
     editList.trace = (...args: any[]) => { console.log(...args); };

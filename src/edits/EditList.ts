@@ -93,7 +93,7 @@ export class EditList {
     //     return undefined;
     // }
 
-    public findEditsWithinRange(span: Span, proper = true): EditNode[] {
+    public findEditsWithinRange(span: Span, ignoreAbutting = true): EditNode[] {
         const result: EditNode[] = [];
         let lastBefore = this.findLastEditBefore(span.start);
         for (let i = lastBefore + 1; i < this.edits.length; i++) {
@@ -101,7 +101,7 @@ export class EditList {
             const editRange = this.edits[i].range;
             let lowerBound = span.start;
             let upperBound = span.end;
-            if (proper) {
+            if (ignoreAbutting) {
                 lowerBound += 1;
                 upperBound -= 1;
             }
@@ -116,9 +116,9 @@ export class EditList {
         return result;
     }
 
-    public getAuthors(span: Span, exclusive: boolean): Set<string> {
+    public getAuthors(span: Span, ignoreAbutting: boolean): Set<string> {
         const authors = new Set<string>();
-        const edits = this.findEditsWithinRange(span, exclusive);
+        const edits = this.findEditsWithinRange(span, ignoreAbutting);
         for (const edit of edits) {
             authors.add(edit.metadata.author);
         }

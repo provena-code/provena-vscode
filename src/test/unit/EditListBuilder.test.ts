@@ -1,25 +1,38 @@
 import { assert, expect, test, } from 'vitest';
 import { EditListBuilder } from '../../edits/EditListBuilder';
 import { EditList } from '../../edits/EditList';
-import { createCopyEvent, createEditList, createEditListWithEvents, EditDefInput, extractEdits, createEditEvent } from './edit-utils';
+import { createCopyEvent, createEditList, createEditListWithEvents, EditDefInput, extractEdits, createEditEvent, createFocusEvent, createUserEditEvents, createNewEditList } from './edit-utils';
 import { Span } from '../../shared/edit-data';
+import { Author } from '../../shared/Author';
+import { LogEvent } from '../../edits/event-types';
 
 describe('EditListBuilder', () => {
   describe('createEditListWithEvents', () => {
     it('should correctly attribute copied text', () => {
-      // TODO: The author annotation isn't used here; need another way to think about it.
-      // TODO: Need to split text edits up into smaller pieces
-      const events = [
-        { text: 'Hello', author: 'u1' },
-        { text: 'Hello World ', author: 'u2' },
-        createCopyEvent('Hello World'),
-        { text: 'Hello World Hello World', author: 'u3' },
-      ] as EditDefInput[];
+      const texts = [
+        '',
+        'Hello ',
+        'Hello  World',
+        'Hello Hello  World World',
+      ]
 
-      const editList = createEditListWithEvents(events, true);
+      const edits = extractEdits(texts);
 
-      expect(editList.getAuthors(new Span(0, 11), false)).toEqual(new Set(['u1']));
-      expect(editList.getAuthors(new Span(12, 23), false)).toEqual(new Set(['u2']));
+      const events: LogEvent[] = [
+        createFocusEvent(texts[0]),
+        ...createUserEditEvents(edits[0]),
+        createEditEvent(edits[1]),
+        createCopyEvent('Hello  World'),
+        createEditEvent(edits[2]),
+      ];
+
+      const editListBuilder = new EditListBuilder(createNewEditList(false));
+      const editList = editListBuilder.editList;
+      events.forEach(e => editListBuilder.onEvent(e));
+
+      expect(editList.toPlainText()).toBe(texts[texts.length - 1]);
+      expect(editList.getAuthors(new Span(0, 12), true)).toEqual(new Set([Author.User]));
+      expect(editList.getAuthors(new Span(13, 24), true)).toEqual(new Set([Author.System]));
 
     });
   });
@@ -43,6 +56,69 @@ describe('EditListBuilder', () => {
       const modifiedEdit = builder.removeRedundantTextChanges(originalEdit);
 
       expect(modifiedEdit).toEqual({ text: 'new', rangeOffset: 11, rangeLength: 'original'.length });
+    });
+
+    it('should return null for identical content', () => {
+      const builder = new EditListBuilder(new EditList());
+      const originalText = 'This is my original text';
+      builder.addEditEvent(createEditEvent({ text: originalText, rangeOffset: 0, rangeLength: originalText.length }));
+      const originalEdit = { text: 'This is my original text', rangeOffset: 0, rangeLength: originalText.length };
+      const modifiedEdit = builder.removeRedundantTextChanges(originalEdit);
+
+      expect(modifiedEdit).toBeNull();
+    });
+
+    it('should handle pure deletions', () => {
+        const builder = new EditListBuilder(new EditList());
+        const originalText = 'This is my original text';
+        builder.addEditEvent(createEditEvent({ text: originalText, rangeOffset: 0, rangeLength: originalText.length }));
+        const originalEdit = { text: 'This is my text', rangeOffset: 0, rangeLength: originalText.length };
+        const modifiedEdit = builder.removeRedundantTextChanges(originalEdit);
+  
+        expect(modifiedEdit).toEqual({ text: '', rangeOffset: 11, rangeLength: 'original '.length });
+    });
+
+    it('should handle replacements at the beginning', () => {
+        const builder = new EditListBuilder(new EditList());
+        const originalText = 'This is my original text';
+        builder.addEditEvent(createEditEvent({ text: originalText, rangeOffset: 0, rangeLength: originalText.length }));
+        const originalEdit = { text: 'Cats is my original text', rangeOffset: 0, rangeLength: originalText.length };
+        const modifiedEdit = builder.removeRedundantTextChanges(originalEdit);
+  
+        expect(modifiedEdit).toEqual({ text: 'Cat', rangeOffset: 0, rangeLength: 'Thi'.length });
+    });
+
+    it('should handle replacements at the end', () => {
+        const builder = new EditListBuilder(new EditList());
+        const originalText = 'This is my original text';
+        builder.addEditEvent(createEditEvent({ text: originalText, rangeOffset: 0, rangeLength: originalText.length }));
+        const originalEdit = { text: 'This is my original document', rangeOffset: 0, rangeLength: originalText.length };
+        const modifiedEdit = builder.removeRedundantTextChanges(originalEdit);
+  
+        expect(modifiedEdit).toEqual({ text: 'document', rangeOffset: 'This is my original '.length, rangeLength: 'text'.length });
+    });
+
+    it('should handle insertion with overlapping prefix/suffix', () => {
+        const builder = new EditListBuilder(new EditList());
+        const originalText = 'aaabbb';
+        builder.addEditEvent(createEditEvent({ text: originalText, rangeOffset: 0, rangeLength: originalText.length }));
+        const originalEdit = { text: 'aaaxbbb', rangeOffset: 0, rangeLength: originalText.length };
+        const modifiedEdit = builder.removeRedundantTextChanges(originalEdit);
+  
+        expect(modifiedEdit).toEqual({ text: 'x', rangeOffset: 3, rangeLength: 0 });
+    });
+
+      it('should respect the config', () => {
+        const builder = new EditListBuilder(new EditList());
+        const originalText = 'ab';
+        builder.addEditEvent(createEditEvent({ text: originalText, rangeOffset: 0, rangeLength: originalText.length }));
+        const originalEdit = { text: 'axb', rangeOffset: 0, rangeLength: originalText.length };
+        const modifiedEdit = builder.removeRedundantTextChanges(originalEdit);
+        expect(modifiedEdit).toEqual(originalEdit);
+
+        builder.config.minRedundantTextLength = 1;
+        const modifiedEdit2 = builder.removeRedundantTextChanges(originalEdit);
+        expect(modifiedEdit2).toEqual({ text: 'x', rangeOffset: 1, rangeLength: 0 });
     });
   });
 });

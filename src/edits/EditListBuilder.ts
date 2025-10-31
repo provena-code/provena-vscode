@@ -107,9 +107,11 @@ export class EditListBuilder implements EventListener {
             sharedEndingLength++;
         }
 
-        if (sharedStartingLength + sharedEndingLength > existingText.length) {
-            // This occurs when the prefix and suffix overlap, so we reduce the suffix length
-            sharedEndingLength = existingText.length - sharedStartingLength;
+        if (sharedEndingLength < this.config.minRedundantTextLength) {
+            sharedEndingLength = 0;
+        }
+        if (sharedStartingLength < this.config.minRedundantTextLength) {
+            sharedStartingLength = 0;
         }
         
         const newText = text.substring(sharedStartingLength, text.length - sharedEndingLength);
