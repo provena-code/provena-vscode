@@ -196,11 +196,11 @@ export function createEditList(textDefs: EditDefInput[], silently: boolean): Edi
 
   const editList = createNewEditList(silently);
 
-  const initialMetadata = createGenericMetadata();
-  if (editDefs[0].author) {
-    initialMetadata.author = editDefs[0].author as Author;
-  }
-  editList.setInitialText(texts[0], initialMetadata);
+  editList.addEdit({
+    text: texts[0],
+    rangeOffset: 0,
+    rangeLength: 0,
+  }, createGenericMetadata(Author.ExistingText));
 
   edits.forEach((edit, i) => {
     const editDef = editDefs[i + 1];

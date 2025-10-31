@@ -43,7 +43,6 @@ export const SaveEvent = DocumentEventBase.extend({
 export const FOCUS_EVENT_TYPE = 'FocusDocumentEvent';
 export const FocusDocumentEvent = DocumentEventBase.extend({
   type: z.literal(FOCUS_EVENT_TYPE),
-  documentText: z.string(), // required on focus
 });
 
 const eventTypes = [

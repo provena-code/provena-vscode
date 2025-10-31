@@ -1,5 +1,5 @@
 import { assert, expect, test, } from 'vitest';
-import { EditListBuilder } from '../../edits/EditListBuilder';
+import { DocumentStatus, EditListBuilder } from '../../edits/EditListBuilder';
 import { EditList } from '../../edits/EditList';
 import { createCopyEvent, createEditList, createEditListWithEvents, EditDefInput, extractEdits, createEditEvent, createFocusEvent, createUserEditEvents, createNewEditList } from './edit-utils';
 import { Span } from '../../shared/edit-data';
@@ -119,6 +119,36 @@ describe('EditListBuilder', () => {
         builder.config.minRedundantTextLength = 1;
         const modifiedEdit2 = builder.removeRedundantTextChanges(originalEdit);
         expect(modifiedEdit2).toEqual({ text: 'x', rangeOffset: 1, rangeLength: 0 });
+    });
+  });
+
+  describe('resetText', () => {
+    it('should verify if the text is unchanged', () => {
+      const builder = new EditListBuilder(new EditList());
+      builder.editList.setInitialText('Hello World', 0);
+      const status = builder.verifyDocumentText('Hello World', 1);
+      expect(status).toBe(DocumentStatus.Synced);
+    });
+
+    it('should treat changes as insertions and deletions', () => {
+      const builder = new EditListBuilder(new EditList());
+      const editList = builder.editList;
+      createUserEditEvents(extractEdits(['', 'Hello This World'])[0]).forEach(e => builder.addEditEvent(e));
+      const status = builder.verifyDocumentText('Hello World Bingo', 1);
+      expect(status).toBe(DocumentStatus.Modified);
+      expect(editList.toPlainText()).toBe('Hello World Bingo');
+      expect(editList.getAuthors(new Span(0, 11), true)).toEqual(new Set([Author.User]));
+      expect(editList.getAuthors(new Span(12, 18), true)).toEqual(new Set([Author.ExternalEdit]));
+    });
+
+    it('should reset text if irreconcilable', () => {
+      const builder = new EditListBuilder(new EditList());
+      const editList = builder.editList;
+      createUserEditEvents(extractEdits(['', 'Hello World'])[0]).forEach(e => builder.addEditEvent(e));
+      const status = builder.verifyDocumentText('Completely different text', 1);
+      expect(status).toBe(DocumentStatus.Irreconcilable);
+      expect(editList.toPlainText()).toBe('Completely different text');
+      expect(editList.getAuthors(new Span(0, 26), true)).toEqual(new Set([Author.ExternalEdit]));
     });
   });
 });

@@ -1,8 +1,9 @@
-import { COPY_EVENT_TYPE, CopyEvent, EDIT_EVENT_TYPE, EditEvent, IChangeEvent, LogEvent } from "./event-types";
+import { COPY_EVENT_TYPE, CopyEvent, EDIT_EVENT_TYPE, EditEvent, FOCUS_EVENT_TYPE, IChangeEvent, LogEvent, SAVE_EVENT_TYPE } from "./event-types";
 import { Author } from "../shared/Author";
 import { QueryMatch, Span } from "../shared/edit-data";
 import { EditList } from "./EditList";
 import { EventListener } from "./EventListener";
+import { diffChars } from "diff";
 
 class CopiedText {
     constructor(public readonly text: string, public readonly match: QueryMatch | null) {}
@@ -21,7 +22,16 @@ class AttributionConfig {
         public removeRedundantTextChanges: boolean = true,
         /** Minimum length of matching text to consider when removing redundant text changes. */
         public minRedundantTextLength: number = 3,
+
+        public minHistoricalMatchOverlapRatio: number = 0.2,
+        public minHistoricalMatchLongestOverlapRatio: number = 0.05,
     ) {}
+}
+
+export enum DocumentStatus {
+    Synced,
+    Modified,
+    Irreconcilable,
 }
 
 export class EditListBuilder implements EventListener {
@@ -65,6 +75,80 @@ export class EditListBuilder implements EventListener {
         return Author.System;
     }
 
+    // TODO: Test this!
+    public verifyDocumentText(documentText: string, time: number) : DocumentStatus {
+        const currentText = this.editList.toPlainText();
+        if (currentText === documentText) {
+            return DocumentStatus.Synced;
+        }
+        const historicalMatch = this.editList.searchHistory(documentText);
+        if (historicalMatch) {
+            this.editList.revertToHistoricalMatch(historicalMatch, time);
+        }
+
+        const parts = diffChars(currentText, documentText);
+        const keptLengths = parts.filter(p => !p.added && !p.removed).map(p => p.value.length);
+        const totalKeptChars = keptLengths.reduce((a, b) => a + b, 0);
+        const overlapRatio = totalKeptChars / Math.max(currentText.length, documentText.length);
+        const longestKept = Math.max(...keptLengths, 0);
+        const longestKeptRatio = longestKept / Math.max(currentText.length, documentText.length);
+
+        if (overlapRatio < this.config.minHistoricalMatchOverlapRatio &&
+            longestKeptRatio < this.config.minHistoricalMatchLongestOverlapRatio) 
+        {
+            console.warn(`Significant document text mismatch detected. Restarting.
+                Overlap ratio: ${overlapRatio.toFixed(3)},
+                Longest kept ratio: ${longestKeptRatio.toFixed(3)}`);
+            this.resetText(documentText, time);
+            return DocumentStatus.Irreconcilable;
+        }
+
+        let offset = 0;
+        for (const part of parts) {
+            const metadata = {
+                author: Author.ExternalEdit,
+                startTime: time,
+                endTime: time
+            };
+            if (part.added) {
+                this.editList.addEdit({
+                    text: part.value,
+                    rangeOffset: offset,
+                    rangeLength: 0,
+                }, {...metadata});
+            } else if (part.removed) {
+                this.editList.addEdit({
+                    text: '',
+                    rangeOffset: offset,
+                    rangeLength: part.value.length,
+                }, {...metadata});
+            }
+            offset += part.value.length;
+        }
+
+        const finalText = this.editList.toPlainText();
+        if (finalText !== documentText) {
+            console.error('Document text verification failed after applying diffs.');
+            this.resetText(documentText, time);
+            return DocumentStatus.Irreconcilable;
+        }
+
+        return DocumentStatus.Modified;
+    }
+
+    private resetText(documentText: string, time: number, author: Author = Author.ExternalEdit) {
+        this.editList.clearEdits();
+        this.editList.addEdit({
+            text: documentText,
+            rangeOffset: 0,
+            rangeLength: 0,
+        }, {
+            author,
+            startTime: time,
+            endTime: time
+        });
+    }
+
     public onEvent(event: LogEvent) {
         switch (event.type) {
             case COPY_EVENT_TYPE:
@@ -72,6 +156,9 @@ export class EditListBuilder implements EventListener {
                 break;
             case EDIT_EVENT_TYPE:
                 this.addEditEvent(event);
+                break;
+            case SAVE_EVENT_TYPE:
+                this.verifyDocumentText(event.documentText, event.time);
                 break;
         }
     }

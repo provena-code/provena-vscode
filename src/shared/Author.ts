@@ -3,5 +3,6 @@ export enum Author {
     System = 'system',
     ExistingText = 'existing-text',
     ExternalPaste = 'external-paste',
+    ExternalEdit = 'external-edit',
     Unknown = 'unknown'
 }

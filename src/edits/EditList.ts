@@ -1,6 +1,11 @@
 import { IChangeEvent } from './event-types';
 import { Author } from '../shared/Author';
 import { EditRange, Span, Metadata, copyEditRange, EditNode, copyMetadata, QueryMatch, QueryParams } from '../shared/edit-data';
+import { create } from 'domain';
+
+function createHeadNode(): EditNode {
+    return new EditNode(new Span(0, 0), '', { author: Author.ExistingText, startTime: 0, endTime: 0 });
+}
 
 /**
  * Manages a history of edits with associated metadata from a code file.
@@ -10,11 +15,7 @@ import { EditRange, Span, Metadata, copyEditRange, EditNode, copyMetadata, Query
 // or a map from range to edit could be maintained
 export class EditList {
     private edits = [] as EditNode[];
-    private head = new EditNode(new Span(0, 0), '', {
-        author: Author.ExistingText,
-        startTime: 0,
-        endTime: 0
-    });
+    private head = createHeadNode();
 
     trace: (...args: any[]) => void = (..._args: any[]) => { };
     logError: (...args: any[]) => void = (..._args: any[]) => { console.error(..._args); };
@@ -172,14 +173,25 @@ export class EditList {
         return result;
     }
 
-    setInitialText(text: string, metadata: Metadata) {
+    public clearEdits() {
+        this.edits = [];
+        this.head = createHeadNode();
+    }
+
+    setInitialText(text: string, time: number) {
         if (this.edits.length > 0) {
             throw new Error('Initial text can only be set on an empty EditList');
         }
         const range = new Span(0, text.length);
-        const child = new EditNode(range, text, metadata);
+        const child = new EditNode(range, text, { author: Author.ExistingText, startTime: time, endTime: time });
         this.edits.push(child);
         this.head.addChild(child);
+    }
+
+    public revertToHistoricalMatch(match: QueryMatch, time: number) {
+        this.edits = [];
+        // TODO: Likely have to do something with updating text and ranges for partial matches!!
+        this.insertQueryMatch(0, match, time, 0);
     }
 
     addEdit(changeEvent: IChangeEvent, metadata: Metadata, isUndoOrRedo = false, pasteMatch: QueryMatch | null = null) {
@@ -262,15 +274,7 @@ export class EditList {
             if (matchPath) {
                 // If we've created this text at this position before, just reconnect to that edit
                 this.trace('Reusing existing edit', matchPath[0]);
-                let spanStart = replacedSpan.start;
-                // These nodes are already in the graph, so just update the edits list
-                const nodes = matchPath.map(m => m.node);
-                nodes.forEach(n => {
-                    n.metadata.endTime = metadata.endTime;
-                    n.range = new Span(spanStart, spanStart + n.text.length);
-                    spanStart += n.text.length;
-                });
-                this.edits.splice(index, 0, ...nodes);
+                this.insertQueryMatch(replacedSpan.start, matchPath, metadata.endTime, index);
 
             } else if (pasteMatch) {
                 this.trace('Using paste match', pasteMatch);
@@ -345,6 +349,17 @@ export class EditList {
         }
 
         this.trace('Final edits:', this.toStringWithRanges());
+    }
+
+    private insertQueryMatch(rangeStart: number, matchPath: QueryMatch, updateTime: number, insertionIndex: number) {
+        // These nodes are already in the graph, so just update the edits list
+        const nodes = matchPath.map(m => m.node);
+        nodes.forEach(n => {
+            n.metadata.endTime = updateTime;
+            n.range = new Span(rangeStart, rangeStart + n.text.length);
+            rangeStart += n.text.length;
+        });
+        this.edits.splice(insertionIndex, 0, ...nodes);
     }
 
     private findUndoOrRedoMatch(isUndoOrRedo: boolean, index: number, subsequentEdit: EditNode, text: string) {

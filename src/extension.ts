@@ -36,12 +36,10 @@ export function activate(context: vscode.ExtensionContext) {
 		console.log(`Document changed: ${document.uri.toString()}`);
 		lastActiveDocument = document;
 		const { editList } = fileDataMap.getFileData(document.uri);
+		// TODO: We should really have a sync text event that triggers if ever the
+		// text doesn't match
 		if (editList.isEmpty()) {
-			editList.setInitialText(document.getText(), {
-				author: Author.ExistingText,
-				startTime: new Date().getTime(),
-				endTime: new Date().getTime(),
-			});
+			editList.setInitialText(document.getText(), new Date().getTime());
 		} else {
 			// TODO: Ensure that last text == new text
 		}
