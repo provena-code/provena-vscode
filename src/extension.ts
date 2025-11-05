@@ -7,10 +7,31 @@ import { FileDataMap } from './recorder/FileDataMap';
 import { EditDisplay } from './display/EditDisplay';
 import { Author } from './shared/Author';
 import { CopyEvent } from './edits/event-types';
+import { EventLogger } from './logging/EventLogger';
+import { EventInitiator } from './api';
+
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
+
+
+	EventLogger.configure('http://127.0.0.1:8000/');
+
+	const logger = new EventLogger({
+		SubjectID: '123',
+		ToolInstances: 'tool123',
+		Order: 0,
+		CourseID: 'course123',
+		CourseSectionID: 'section123',
+		TermID: 'term123',
+		AssignmentID: 'assignment123',
+		ProblemID: 'problem123',
+		Attempt: 1,
+		ExperimentalCondition: 'condition123',
+		TeamID: 'team123',
+	});
+
 
 	const fileDataMap = new FileDataMap(true);
 	const disposables = [];
@@ -44,6 +65,7 @@ export function activate(context: vscode.ExtensionContext) {
 			// TODO: Ensure that last text == new text
 		}
 		editDisplay.update(editList);
+		logger.logFileFocus(document.uri.toString());
 	}
 
 	disposables.push(vscode.window.onDidChangeActiveTextEditor(editor => {
