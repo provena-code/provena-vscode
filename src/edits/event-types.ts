@@ -9,6 +9,9 @@ const EventBase = z.object({
 // Document-related base
 const DocumentEventBase = EventBase.extend({
   documentUri: z.string(),
+  /** Hash of the document text *after* the event has occurred. */
+  documentTextHash: z.string(),
+  /** Text of the document *after* the event has occurred. */
   documentText: z.string().optional(),
 });
 
@@ -34,7 +37,7 @@ export const CopyEvent = EventBase.extend({
   copiedText: z.string(),
 });
 
-export const SAVE_EVENT_TYPE = 'SaveEvent'
+export const SAVE_EVENT_TYPE = 'SaveEvent';
 export const SaveEvent = DocumentEventBase.extend({
   type: z.literal(SAVE_EVENT_TYPE),
   documentText: z.string(), // required on save
@@ -45,11 +48,18 @@ export const FocusDocumentEvent = DocumentEventBase.extend({
   type: z.literal(FOCUS_EVENT_TYPE),
 });
 
+export const SYNC_EVENT_TYPE = 'SyncEvent';
+export const SyncEvent = DocumentEventBase.extend({
+  type: z.literal(SYNC_EVENT_TYPE),
+  documentText: z.string(), // required on sync
+});
+
 const eventTypes = [
   EditEvent,
   CopyEvent,
   SaveEvent,
   FocusDocumentEvent,
+  SyncEvent,
 ] as const;
 
 // Discriminated union of all events

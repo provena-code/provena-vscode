@@ -74,7 +74,7 @@ describe('EditListBuilder', () => {
         builder.addEditEvent(createEditEvent({ text: originalText, rangeOffset: 0, rangeLength: originalText.length }));
         const originalEdit = { text: 'This is my text', rangeOffset: 0, rangeLength: originalText.length };
         const modifiedEdit = builder.removeRedundantTextChanges(originalEdit);
-  
+
         expect(modifiedEdit).toEqual({ text: '', rangeOffset: 11, rangeLength: 'original '.length });
     });
 
@@ -84,7 +84,7 @@ describe('EditListBuilder', () => {
         builder.addEditEvent(createEditEvent({ text: originalText, rangeOffset: 0, rangeLength: originalText.length }));
         const originalEdit = { text: 'Cats is my original text', rangeOffset: 0, rangeLength: originalText.length };
         const modifiedEdit = builder.removeRedundantTextChanges(originalEdit);
-  
+
         expect(modifiedEdit).toEqual({ text: 'Cat', rangeOffset: 0, rangeLength: 'Thi'.length });
     });
 
@@ -94,7 +94,7 @@ describe('EditListBuilder', () => {
         builder.addEditEvent(createEditEvent({ text: originalText, rangeOffset: 0, rangeLength: originalText.length }));
         const originalEdit = { text: 'This is my original document', rangeOffset: 0, rangeLength: originalText.length };
         const modifiedEdit = builder.removeRedundantTextChanges(originalEdit);
-  
+
         expect(modifiedEdit).toEqual({ text: 'document', rangeOffset: 'This is my original '.length, rangeLength: 'text'.length });
     });
 
@@ -104,7 +104,7 @@ describe('EditListBuilder', () => {
         builder.addEditEvent(createEditEvent({ text: originalText, rangeOffset: 0, rangeLength: originalText.length }));
         const originalEdit = { text: 'aaaxbbb', rangeOffset: 0, rangeLength: originalText.length };
         const modifiedEdit = builder.removeRedundantTextChanges(originalEdit);
-  
+
         expect(modifiedEdit).toEqual({ text: 'x', rangeOffset: 3, rangeLength: 0 });
     });
 
@@ -122,11 +122,11 @@ describe('EditListBuilder', () => {
     });
   });
 
-  describe('resetText', () => {
+  describe('verifyDocumentText', () => {
     it('should verify if the text is unchanged', () => {
       const builder = new EditListBuilder(new EditList());
       builder.editList.setInitialText('Hello World', 0);
-      const status = builder.verifyDocumentText('Hello World', 1);
+      const status = builder.verifyDocumentText('Hello World', 1, true);
       expect(status).toBe(DocumentStatus.Synced);
     });
 
@@ -134,7 +134,7 @@ describe('EditListBuilder', () => {
       const builder = new EditListBuilder(new EditList());
       const editList = builder.editList;
       createUserEditEvents(extractEdits(['', 'Hello This World'])[0]).forEach(e => builder.addEditEvent(e));
-      const status = builder.verifyDocumentText('Hello World Bingo', 1);
+      const status = builder.verifyDocumentText('Hello World Bingo', 1, true);
       expect(status).toBe(DocumentStatus.Modified);
       expect(editList.toPlainText()).toBe('Hello World Bingo');
       expect(editList.getAuthors(new Span(0, 11), true)).toEqual(new Set([Author.User]));
@@ -145,7 +145,7 @@ describe('EditListBuilder', () => {
       const builder = new EditListBuilder(new EditList());
       const editList = builder.editList;
       createUserEditEvents(extractEdits(['', 'Hello World'])[0]).forEach(e => builder.addEditEvent(e));
-      const status = builder.verifyDocumentText('Completely different text', 1);
+      const status = builder.verifyDocumentText('Completely different text', 1, true);
       expect(status).toBe(DocumentStatus.Irreconcilable);
       expect(editList.toPlainText()).toBe('Completely different text');
       expect(editList.getAuthors(new Span(0, 26), true)).toEqual(new Set([Author.ExternalEdit]));

@@ -95,7 +95,9 @@ function getEdgesRecursive(node: EditNode, from: string, to: string, edges: [Edi
 }
 
 export function createUserEditEvents(change: IChangeEvent): EditEvent[] {
-  if (change.text.length === 0) return [createEditEvent(change)];
+  if (change.text.length === 0) {
+    return [createEditEvent(change)];
+  }
   const events: EditEvent[] = [];
   if (change.rangeLength > 0) {
     // Deletion event

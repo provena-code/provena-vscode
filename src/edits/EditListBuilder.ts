@@ -1,4 +1,4 @@
-import { COPY_EVENT_TYPE, CopyEvent, EDIT_EVENT_TYPE, EditEvent, FOCUS_EVENT_TYPE, IChangeEvent, LogEvent, SAVE_EVENT_TYPE } from "./event-types";
+import { COPY_EVENT_TYPE, CopyEvent, EDIT_EVENT_TYPE, EditEvent, FOCUS_EVENT_TYPE, IChangeEvent, LogEvent, SAVE_EVENT_TYPE, SYNC_EVENT_TYPE } from "./event-types";
 import { Author } from "../shared/Author";
 import { QueryMatch, Span } from "../shared/edit-data";
 import { EditList } from "./EditList";
@@ -43,7 +43,7 @@ export class EditListBuilder implements EventListener {
     }
 
     constructor(
-        public readonly editList: EditList, 
+        public readonly editList: EditList,
         public readonly config: AttributionConfig = new AttributionConfig()
     ) {}
 
@@ -75,15 +75,17 @@ export class EditListBuilder implements EventListener {
         return Author.System;
     }
 
-    // TODO: Test this!
-    public verifyDocumentText(documentText: string, time: number) : DocumentStatus {
+    public verifyDocumentText(documentText: string, time: number, update: boolean) : DocumentStatus {
         const currentText = this.editList.toPlainText();
         if (currentText === documentText) {
             return DocumentStatus.Synced;
         }
         const historicalMatch = this.editList.searchHistory(documentText);
         if (historicalMatch) {
-            this.editList.revertToHistoricalMatch(historicalMatch, time);
+            if (update) {
+                this.editList.revertToHistoricalMatch(historicalMatch, time);
+            }
+            return DocumentStatus.Modified;
         }
 
         const parts = diffChars(currentText, documentText);
@@ -93,8 +95,14 @@ export class EditListBuilder implements EventListener {
         const longestKept = Math.max(...keptLengths, 0);
         const longestKeptRatio = longestKept / Math.max(currentText.length, documentText.length);
 
-        if (overlapRatio < this.config.minHistoricalMatchOverlapRatio &&
-            longestKeptRatio < this.config.minHistoricalMatchLongestOverlapRatio) 
+        const isReconcilable = overlapRatio >= this.config.minHistoricalMatchOverlapRatio ||
+                                longestKeptRatio >= this.config.minHistoricalMatchLongestOverlapRatio;
+
+        if (!update) {
+            return isReconcilable ? DocumentStatus.Modified : DocumentStatus.Irreconcilable;
+        }
+
+        if (!isReconcilable)
         {
             console.warn(`Significant document text mismatch detected. Restarting.
                 Overlap ratio: ${overlapRatio.toFixed(3)},
@@ -157,15 +165,12 @@ export class EditListBuilder implements EventListener {
             case EDIT_EVENT_TYPE:
                 this.addEditEvent(event);
                 break;
-            case SAVE_EVENT_TYPE:
-                this.verifyDocumentText(event.documentText, event.time);
-                break;
         }
     }
 
     /**
      * Modifies the given change event to remove any redundant text changes, where existing text is
-     * replaced with identical text. 
+     * replaced with identical text.
      * For example, if the existing text is "Hello World" and the change event replaces it with
      * "Hello New World", the redundant "Hello " and " World" parts will be removed, resulting in
      * a change event that only inserts "New" at the appropriate position.
@@ -176,7 +181,9 @@ export class EditListBuilder implements EventListener {
         const { text, rangeLength, rangeOffset } = changeEvent;
         // If you're note deleting text, or inserting more text than you're deleting,
         // there's no redundancy to remove.
-        if (rangeLength === 0) return changeEvent;
+        if (rangeLength === 0) {
+            return changeEvent;
+        }
 
         const existingText = this.editList.getTextInRangeInclusive(new Span(rangeOffset, rangeOffset + rangeLength));
 
@@ -200,7 +207,7 @@ export class EditListBuilder implements EventListener {
         if (sharedStartingLength < this.config.minRedundantTextLength) {
             sharedStartingLength = 0;
         }
-        
+
         const newText = text.substring(sharedStartingLength, text.length - sharedEndingLength);
         const newRangeLength = existingText.length - sharedStartingLength - sharedEndingLength;
 
@@ -231,7 +238,7 @@ export class EditListBuilder implements EventListener {
                 match = this.copiedText.match;
             }
 
-            let edit = originalEdit
+            let edit = originalEdit;
             if (this.config.removeRedundantTextChanges && !match && !isUndoOrRedo) {
                 let newEdit = this.removeRedundantTextChanges(originalEdit);
                 if (!newEdit) {

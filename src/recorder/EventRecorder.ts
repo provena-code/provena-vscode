@@ -57,6 +57,19 @@ class EventWriter implements EventListener {
     }
 }
 
+export function getDocumentTextHash(document: vscode.TextDocument): string {
+    const text = document.getText();
+    let hash = 0, i, chr;
+    if (text.length === 0) return hash.toString();
+
+    for (i = 0; i < text.length; i++) {
+        chr = text.charCodeAt(i);
+        hash = ((hash << 5) - hash) + chr;
+        hash |= 0; // Convert to 32bit integer
+    }
+    return hash.toString();
+}
+
 export class EventRecorder {
     private hasInitialized = false;
 
@@ -88,6 +101,7 @@ export class EventRecorder {
             ...this.getEventBaseData(),
             documentText: text,
             documentUri: document.uri.toString(),
+            documentTextHash: getDocumentTextHash(document),
         };
     }
 
@@ -99,7 +113,7 @@ export class EventRecorder {
         this.recordData({
             type: FOCUS_EVENT_TYPE,
             ...this.getDocumentData(document),
-        } as FocusDocumentEvent);
+        });
         this.hasInitialized = true;
     }
 
