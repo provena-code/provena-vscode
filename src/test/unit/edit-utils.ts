@@ -202,7 +202,7 @@ export function createEditList(textDefs: EditDefInput[], silently: boolean): Edi
     text: texts[0],
     rangeOffset: 0,
     rangeLength: 0,
-  }, createGenericMetadata(Author.ExistingText));
+  }, createGenericMetadata(editDefs[0]?.author as Author || Author.ExistingText));
 
   edits.forEach((edit, i) => {
     const editDef = editDefs[i + 1];

@@ -60,7 +60,9 @@ class EventWriter implements EventListener {
 export function getDocumentTextHash(document: vscode.TextDocument): string {
     const text = document.getText();
     let hash = 0, i, chr;
-    if (text.length === 0) return hash.toString();
+    if (text.length === 0) {
+        return hash.toString();
+    }
 
     for (i = 0; i < text.length; i++) {
         chr = text.charCodeAt(i);
@@ -133,13 +135,13 @@ export class EventRecorder {
         const contentChanges: readonly IChangeEvent[] = event.contentChanges;
 
         // flatten the event to json
-        const eventData = {
+        const eventData: EditEvent = {
             type: EDIT_EVENT_TYPE,
             ...this.getDocumentData(event.document),
             isUndoOrRedo: event.reason === vscode.TextDocumentChangeReason.Redo ||
                 event.reason === vscode.TextDocumentChangeReason.Undo,
             contentChanges,
-        } as EditEvent;
+        };
         this.recordData(eventData);
     }
 }
