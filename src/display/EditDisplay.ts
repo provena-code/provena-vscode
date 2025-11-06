@@ -1,8 +1,7 @@
 
 import * as vscode from 'vscode';
-import { EditList } from '../edits/EditList';
+import { EditList, EditNode, Span, toPOJO } from 'provena';
 import * as devalue from 'devalue';
-import { EditNode, Span, toPOJO } from '../shared/edit-data';
 
 export class EditDisplay {
 

@@ -52,6 +52,7 @@
     "webpack-cli": "^5.1.4"
   },
   "dependencies": {
+    "provena": "file:core",
     "axios": "^1.13.2",
     "d3": "^7.9.0",
     "dagre-d3-es": "^7.0.11",

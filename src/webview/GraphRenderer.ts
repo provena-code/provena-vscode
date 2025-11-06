@@ -1,5 +1,5 @@
 import * as dagreD3 from 'dagre-d3-es';
-import { EditNode } from '../shared/edit-data';
+import { EditNode } from 'provena';
 import * as d3 from 'd3';
 
 export class GraphRenderer {

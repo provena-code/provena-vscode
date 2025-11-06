@@ -1,8 +1,8 @@
 
 import * as vscode from 'vscode';
-import { EditList } from '../edits/EditList';
+import { EditList } from 'provena';
 import { EventRecorder, FileOutputStream } from './EventRecorder';
-import { EditListBuilder } from '../edits/EditListBuilder';
+import { EditListBuilder } from 'provena';
 
 type FileData = {
     uri: vscode.Uri;
