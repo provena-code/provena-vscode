@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { COPY_EVENT_TYPE, EDIT_EVENT_TYPE, EditEvent, FOCUS_EVENT_TYPE, FocusDocumentEvent, IChangeEvent, LogEvent } from 'provena';
-import { EventListener } from '../edits/EventListener';
+import { EventListener } from 'provena';
 
 interface OutputStream {
     write(data: string): void;

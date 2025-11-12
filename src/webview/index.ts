@@ -1,4 +1,4 @@
-import { EditNode, EditRange, Span } from "../shared/edit-data";
+import { EditNode, Span } from "provena";
 import { CodeRenderer } from "./CodeRenderer";
 import * as devalue from 'devalue';
 import { GraphRenderer } from "./GraphRenderer";

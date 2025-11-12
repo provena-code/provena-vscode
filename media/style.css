@@ -1,22 +1,29 @@
 .author-user  {
     background-color: #D1E7DD;
     color: #0F5132;
-    border: 2px solid #88a799;
+    border-color: #88a799;
 }
 .author-external-paste  {
     background-color: #F8D7DA;
     color: #721C24;
-    border: 2px solid #af8b8f;
+    border-color: #af8b8f;
 }
 .author-system  {
     background-color: #FFF3CD;
     color: #664D03;
-    border: 2px solid #d6c26d;
+    border-color: #d6c26d;
 }
 .author-unknown  {
     background-color: #E2E3E5;
     color: #41464B;
-    border: 2px solid #B1B3B5;
+    border-color: #B1B3B5;
+}
+.author-existing-text  {
+    border: none;
+}
+
+.edit-range {
+    border: 1px solid transparent;
 }
 
 #code-container {
@@ -40,18 +47,18 @@
 
 /* dagre-d3 graph styles */
 .node rect {
-  fill: #f0f0f0;       /* interior color */
-  stroke: #333;        /* border color */
-  stroke-width: 1.5px;
+    fill: #f0f0f0;       /* interior color */
+    stroke: #333;        /* border color */
+    stroke-width: 1.5px;
 }
 
 .node text {
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 12px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 12px;
 }
 
 .edgePath path {
-  stroke: #333;        /* edge line color */
-  stroke-width: 1.5px;
-  fill: none;
+    stroke: #333;        /* edge line color */
+    stroke-width: 1.5px;
+    fill: none;
 }

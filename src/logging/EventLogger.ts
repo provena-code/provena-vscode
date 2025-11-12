@@ -103,6 +103,8 @@ export class EventLogger extends EventLoggerBase {
                     this.codeStateHistory.shift();
                 }
             }
+        }).catch((error: any) => {
+            ErrorHandler.logError("Failed to log event:", error);
         });
     }
 

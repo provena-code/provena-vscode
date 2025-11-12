@@ -54,8 +54,14 @@ export function activate(context: vscode.ExtensionContext) {
 		if (!document || document === lastActiveDocument) {
 			return;
 		}
-		console.log(`Document changed: ${document.uri.toString()}`);
 		lastActiveDocument = document;
+		console.log(`Document changed: ${document.uri.toString()}`);
+
+		// If the document is not in a workspace, ignore it
+		if (!vscode.workspace.getWorkspaceFolder(document.uri)) {
+			return;
+		}
+
 		const { editList } = fileDataMap.getFileData(document.uri);
 		// TODO: We should really have a sync text event that triggers if ever the
 		// text doesn't match
@@ -65,7 +71,7 @@ export function activate(context: vscode.ExtensionContext) {
 			// TODO: Ensure that last text == new text
 		}
 		editDisplay.update(editList);
-		logger.logFileFocus(document.uri.toString());
+		// logger.logFileFocus(document.uri.toString());
 	}
 
 	disposables.push(vscode.window.onDidChangeActiveTextEditor(editor => {
@@ -79,9 +85,12 @@ export function activate(context: vscode.ExtensionContext) {
 	disposables.push(vscode.workspace.onDidChangeTextDocument(async event => {
         console.log(event);
 
-		const { editList, eventRecorder } = fileDataMap.getFileData(event.document.uri);
-
 		switchActiveEditor(event.document);
+		if (!vscode.workspace.getWorkspaceFolder(event.document.uri)) {
+			return;
+		}
+
+		const { editList, eventRecorder } = fileDataMap.getFileData(event.document.uri);
 
 		const clipboardText = await vscode.env.clipboard.readText();
 		if (clipboardText !== lastCopiedText) {

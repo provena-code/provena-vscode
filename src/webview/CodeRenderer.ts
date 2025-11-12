@@ -1,4 +1,4 @@
-import { EditNode, EditRange, Metadata } from "../shared/edit-data";
+import { EditNode, Metadata } from "provena";
 
 export class CodeRenderer {
     private readonly rootElement: HTMLElement;
