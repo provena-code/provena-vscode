@@ -20,7 +20,7 @@ import { showCancelledError, showTokenError } from '../../ui';
 import { buildAuthUrl, exchangeCodeForToken, generatePKCE, getUserInfo, refreshAccessToken, revokeToken } from '../../utils/oauth';
 import { randomBytes } from 'crypto';
 import axios from 'axios';
-import { GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_SECRET } from '../../secret';
+import { GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_SECRET } from '../secret';
 
 export class GoogleProvider implements IdentityProvider {
     public id = GOOGLE_PROVIDER_ID;
