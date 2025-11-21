@@ -1,20 +1,17 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-import { EditList } from './edits/EditList';
-import { Metadata } from './shared/edit-data';
 import { FileDataMap } from './recorder/FileDataMap';
 import { EditDisplay } from './display/EditDisplay';
-import { Author } from './shared/Author';
-import { CopyEvent } from './edits/event-types';
 import { EventLogger } from './logging/EventLogger';
-import { EventInitiator } from './api';
+import { initializeAuth, ensureLoggedIn, getVerifiedGoogleEmail } from './auth';
+import { NoStoredIdentityError } from './auth/types';
 
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
-
+	initializeAuth(context);
 
 	EventLogger.configure('http://127.0.0.1:8000/');
 
@@ -35,6 +32,10 @@ export function activate(context: vscode.ExtensionContext) {
 
 	const fileDataMap = new FileDataMap(true);
 	const disposables = [];
+
+	disposables.push(vscode.commands.registerCommand('ta-editor.login', () => {
+		ensureLoggedIn();
+	}));
 
 	const panel = vscode.window.createWebviewPanel(
 		'ta-display', // internal identifier
@@ -103,6 +104,18 @@ export function activate(context: vscode.ExtensionContext) {
 	}));
 
 	context.subscriptions.push(...disposables);
+
+	// Example of how to use getVerifiedGoogleEmail
+	// This will also trigger the login prompt on first use if configured
+	getVerifiedGoogleEmail().then(identity => {
+		console.log(`Logged in as ${identity.email} (verified: ${identity.verified})`);
+	}).catch(err => {
+		if (err instanceof NoStoredIdentityError) {
+			console.log("User is not logged in and cancelled login prompt.");
+		} else {
+			console.error("An error occurred during authentication:", err);
+		}
+	});
 }
 
 // This method is called when your extension is deactivated

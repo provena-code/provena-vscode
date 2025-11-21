@@ -1,6 +1,6 @@
 {
   "name": "ta-editor",
-  "displayName": "ta-editor",
+  "displayName": "Provena",
   "description": "",
   "version": "0.0.1",
   "engines": {
@@ -18,8 +18,26 @@
       {
         "command": "ta-editor.helloWorld",
         "title": "Hello World"
+      },
+      {
+        "command": "ta-editor.login",
+        "title": "Sign into Provena with Google"
+      },
+      {
+        "command": "ta-editor.logout",
+        "title": "Sign out of Provena"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Provena",
+      "properties": {
+        "ta-editor.auth.promptOnFirstUse": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to prompt for login automatically on first use of a feature that requires authentication."
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
@@ -38,6 +56,7 @@
     "@types/d3": "^7.4.3",
     "@types/mocha": "^10.0.9",
     "@types/node": "20.x",
+    "@types/sinon": "^21.0.0",
     "@types/vscode": "^1.104.0",
     "@typescript-eslint/eslint-plugin": "^8.10.0",
     "@typescript-eslint/parser": "^8.7.0",
@@ -45,6 +64,7 @@
     "@vscode/test-electron": "^2.4.1",
     "eslint": "^9.13.0",
     "openapi-typescript-codegen": "^0.29.0",
+    "sinon": "^21.0.0",
     "ts-loader": "^9.5.1",
     "typescript": "^5.6.3",
     "vitest": "^3.2.4",
@@ -52,12 +72,12 @@
     "webpack-cli": "^5.1.4"
   },
   "dependencies": {
-    "provena": "file:core",
     "axios": "^1.13.2",
     "d3": "^7.9.0",
     "dagre-d3-es": "^7.0.11",
     "devalue": "^5.3.2",
     "diff": "^8.0.2",
+    "provena": "file:core",
     "zod": "^4.1.12"
   }
 }

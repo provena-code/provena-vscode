@@ -18,6 +18,8 @@ If you have any requirements or dependencies, add a section describing those and
 
 ## Extension Settings
 
+This extension adds authentication settings for Google OAuth. See [Authentication Setup](AUTH_SETUP.md) for details.
+
 Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
 
 For example:
