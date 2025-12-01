@@ -18,5 +18,8 @@ export const CONFIG_KEY_FORCE_PKCE = `${CONFIG_KEY_PREFIX}forcePKCE`;
 export const CONFIG_KEY_PROMPT_ON_FIRST_USE = `${CONFIG_KEY_PREFIX}promptOnFirstUse`;
 
 // Commands
-export const COMMAND_LOGIN = 'ta-editor.login';
-export const COMMAND_LOGOUT = 'ta-editor.logout';
+export const COMMAND_LOGIN = 'provena.login';
+export const COMMAND_LOGOUT = 'provena.logout';
+
+export const CONTEXT_IS_LOGGED_IN = 'provena.loggedIn';
+export const CONTEXT_USERNAME = 'provena.username';

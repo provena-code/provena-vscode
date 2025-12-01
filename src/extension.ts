@@ -4,14 +4,22 @@ import * as vscode from 'vscode';
 import { FileDataMap } from './recorder/FileDataMap';
 import { EditDisplay } from './display/EditDisplay';
 import { EventLogger } from './logging/EventLogger';
-import { initializeAuth, ensureLoggedIn, getVerifiedGoogleEmail } from './auth';
+import { initializeAuth, ensureLoggedIn, getVerifiedGoogleEmail, onAuthChange } from './auth';
 import { NoStoredIdentityError } from './auth/types';
+import { CONTEXT_IS_LOGGED_IN, CONTEXT_USERNAME } from './constants';
+import { unknown } from 'zod';
 
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
 	initializeAuth(context);
+
+	onAuthChange()(({ providerId, identity }) => {
+		console.log(`Auth change for provider ${providerId}:`, identity);
+		vscode.commands.executeCommand('setContext', CONTEXT_IS_LOGGED_IN, identity !== null);
+		vscode.commands.executeCommand('setContext', CONTEXT_USERNAME, identity ? identity.email : undefined);
+	});
 
 	EventLogger.configure('http://127.0.0.1:8000/');
 
@@ -33,7 +41,7 @@ export function activate(context: vscode.ExtensionContext) {
 	const fileDataMap = new FileDataMap(true);
 	const disposables = [];
 
-	disposables.push(vscode.commands.registerCommand('ta-editor.login', () => {
+	disposables.push(vscode.commands.registerCommand('provena.login', () => {
 		ensureLoggedIn();
 	}));
 
@@ -116,6 +124,29 @@ export function activate(context: vscode.ExtensionContext) {
 			console.error("An error occurred during authentication:", err);
 		}
 	});
+
+	vscode.commands.registerCommand('provena.setActive', () => {
+		vscode.window.showInformationMessage("Provena is now active for this workspace.");
+		vscode.workspace.getConfiguration().update('provena.active', true, vscode.ConfigurationTarget.Workspace);
+	});
+
+	vscode.commands.registerCommand('provena.setInactive', () => {
+		vscode.window.showInformationMessage("Provena is disabled. To change this setting, ask your instructor.");
+		vscode.workspace.getConfiguration().update('provena.active', false, vscode.ConfigurationTarget.Workspace);
+	});
+
+	vscode.commands.registerCommand('provena.openAuthorshipView', () => {
+		editDisplay.panel.reveal(undefined, false);
+	});
+
+	vscode.commands.executeCommand(
+		'workbench.action.openWalkthrough',
+		{
+			category: 'hintslab.provena#setup',
+			step: '*',
+			openToSide: true
+		}
+	);
 }
 
 // This method is called when your extension is deactivated

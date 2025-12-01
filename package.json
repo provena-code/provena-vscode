@@ -1,5 +1,6 @@
 {
-  "name": "ta-editor",
+  "name": "provena",
+  "publisher": "hintslab",
   "displayName": "Provena",
   "description": "",
   "version": "0.0.1",
@@ -14,27 +15,84 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "walkthroughs": [
+      {
+        "id": "setup",
+        "title": "Set up Provena",
+        "description": "Set up Provena to show your work on programming assignments for class.",
+        "steps": [
+          {
+            "id": "use-provena",
+            "title": "Is this workspace for school?",
+            "description": "Provena is a tool for showing your work on programming assignments. Will you use this workspace for CSC 111?\n[Yes, activate Provena](command:provena.setActive)\n[No, disable Provena](command:provena.setInactive)",
+            "media": {"markdown": "media/about.md" },
+            "completionEvents": [
+              "onCommand:provena.setActive",
+              "onCommand:provena.setInactive"
+            ]
+          },
+          {
+            "id": "login-complete",
+            "title": "You're already signed in",
+            "description": "You are already signed in.\n[Sign Out](command:provena.logout)",
+            "media": {"markdown": "media/about.md" },
+            "completionEvents": [
+              "onContext:provena.loggedIn"
+            ],
+            "when": "provena.loggedIn && config.provena.active"
+          },
+          {
+            "id": "login-required",
+            "title": "Sign In",
+            "description": "You must be signed in through your Google account to show your work with Provena.\n[Sign In](command:provena.login)",
+            "media": {"markdown": "media/about.md" },
+            "completionEvents": [
+              "onContext:provena.loggedIn"
+            ],
+            "when": "!provena.loggedIn && config.provena.active"
+          },
+          {
+            "id": "see-authorship",
+            "title": "Show your work",
+            "description": "Provena gives you credit for the code you write yourself, and lets you document where you got help from other sources.\n[See how it works](command:provena.openAuthorshipView)",
+            "media": {"markdown": "media/about.md" },
+            "completionEvents": [
+              "onCommand:provena.openAuthorshipView"
+            ],
+            "when": "config.provena.active"
+          }
+        ]
+      }
+    ],
     "commands": [
       {
-        "command": "ta-editor.helloWorld",
-        "title": "Hello World"
-      },
-      {
-        "command": "ta-editor.login",
+        "command": "provena.login",
         "title": "Sign into Provena with Google"
       },
       {
-        "command": "ta-editor.logout",
+        "command": "provena.logout",
         "title": "Sign out of Provena"
+      },
+      {
+        "command": "provena.setActive",
+        "title": "Set Provena to be active for this workspace."
+      },
+      {
+        "command": "provena.setInactive",
+        "title": "Set Provena to be inactive for this workspace."
+      },
+      {
+        "command": "provena.openAuthorshipView",
+        "title": "Open Provena Authorship View"
       }
     ],
     "configuration": {
       "title": "Provena",
       "properties": {
-        "ta-editor.auth.promptOnFirstUse": {
+        "provena.active": {
           "type": "boolean",
           "default": true,
-          "description": "Whether to prompt for login automatically on first use of a feature that requires authentication."
+          "description": "Whether or not Provena is active for this workspace."
         }
       }
     }
