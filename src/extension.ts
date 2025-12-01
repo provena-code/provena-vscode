@@ -6,7 +6,7 @@ import { EditDisplay } from './display/EditDisplay';
 import { EventLogger } from './logging/EventLogger';
 import { initializeAuth, ensureLoggedIn, getVerifiedGoogleEmail, onAuthChange } from './auth';
 import { NoStoredIdentityError } from './auth/types';
-import { CONTEXT_IS_LOGGED_IN, CONTEXT_USERNAME } from './constants';
+import { CONFIG_PROVENA_ACTIVE, CONTEXT_IS_LOGGED_IN, CONTEXT_USERNAME } from './constants';
 import { unknown } from 'zod';
 
 
@@ -15,8 +15,11 @@ import { unknown } from 'zod';
 export function activate(context: vscode.ExtensionContext) {
 	initializeAuth(context);
 
+	let isLoggedIn = false;
+
 	onAuthChange()(({ providerId, identity }) => {
 		console.log(`Auth change for provider ${providerId}:`, identity);
+		isLoggedIn = identity !== null;
 		vscode.commands.executeCommand('setContext', CONTEXT_IS_LOGGED_IN, identity !== null);
 		vscode.commands.executeCommand('setContext', CONTEXT_USERNAME, identity ? identity.email : undefined);
 	});
@@ -84,7 +87,7 @@ export function activate(context: vscode.ExtensionContext) {
 	}
 
 	disposables.push(vscode.window.onDidChangeActiveTextEditor(editor => {
-		if (editor) {
+		if (isProvenaActive() && editor) {
 			switchActiveEditor(editor.document);
 		}
 	}));
@@ -92,6 +95,9 @@ export function activate(context: vscode.ExtensionContext) {
 	let lastCopiedText: string | null = null;
 
 	disposables.push(vscode.workspace.onDidChangeTextDocument(async event => {
+		if (!isProvenaActive()) {
+			return;
+		}
         console.log(event);
 
 		switchActiveEditor(event.document);
@@ -109,6 +115,8 @@ export function activate(context: vscode.ExtensionContext) {
 		eventRecorder.recordDocumentChange(event);
 		editDisplay.update(editList);
 		// console.log(`Current edits: ${editList.toString()}`);
+
+		showWarningIfNotConfigured(isLoggedIn);
 	}));
 
 	context.subscriptions.push(...disposables);
@@ -117,27 +125,71 @@ export function activate(context: vscode.ExtensionContext) {
 	// This will also trigger the login prompt on first use if configured
 	getVerifiedGoogleEmail().then(identity => {
 		console.log(`Logged in as ${identity.email} (verified: ${identity.verified})`);
+		showWalkthroughIfNeeded(true);
 	}).catch(err => {
 		if (err instanceof NoStoredIdentityError) {
 			console.log("User is not logged in and cancelled login prompt.");
 		} else {
 			console.error("An error occurred during authentication:", err);
 		}
+		showWalkthroughIfNeeded(false);
 	});
 
 	vscode.commands.registerCommand('provena.setActive', () => {
 		vscode.window.showInformationMessage("Provena is now active for this workspace.");
-		vscode.workspace.getConfiguration().update('provena.active', true, vscode.ConfigurationTarget.Workspace);
+		vscode.workspace.getConfiguration().update(CONFIG_PROVENA_ACTIVE, true, vscode.ConfigurationTarget.Workspace);
 	});
 
 	vscode.commands.registerCommand('provena.setInactive', () => {
 		vscode.window.showInformationMessage("Provena is disabled. To change this setting, ask your instructor.");
-		vscode.workspace.getConfiguration().update('provena.active', false, vscode.ConfigurationTarget.Workspace);
+		vscode.workspace.getConfiguration().update(CONFIG_PROVENA_ACTIVE, false, vscode.ConfigurationTarget.Workspace);
 	});
 
 	vscode.commands.registerCommand('provena.openAuthorshipView', () => {
 		editDisplay.panel.reveal(undefined, false);
 	});
+}
+
+function isProvenaActive(): boolean {
+	const provenaActive = vscode.workspace.getConfiguration().get(CONFIG_PROVENA_ACTIVE);
+	return provenaActive === true;
+}
+
+function isProvenaConfigured(isLoggedIn: boolean): boolean {
+	const provenaActive = vscode.workspace.getConfiguration().get(CONFIG_PROVENA_ACTIVE);
+	if (provenaActive === false) {
+		// We never show the walkthrough if provena is explicitly inactive
+		return false;
+	}
+	return provenaActive !== undefined && isLoggedIn;
+}
+
+let lastWarningTime: number | null = null;
+function showWarningIfNotConfigured(isLoggedIn: boolean) {
+	if (isProvenaConfigured(isLoggedIn)) {
+		return;
+	}
+	const now = new Date().getTime();
+	if (lastWarningTime && now - lastWarningTime < 5 * 1000) {
+		// Don't show the warning more than once every 5 seconds
+		return;
+	}
+	lastWarningTime = now;
+
+	vscode.window.showWarningMessage(
+		"Warning: You must finish setting up Provena (or disable it) to get credit for your work.",
+		"Open Walkthrough"
+	).then(selection => {
+		if (selection === "Open Walkthrough") {
+			showWalkthroughIfNeeded(isLoggedIn);
+		}
+	});
+}
+
+function showWalkthroughIfNeeded(isLoggedIn: boolean) {
+	if (!isProvenaConfigured(isLoggedIn)) {
+		return;
+	}
 
 	vscode.commands.executeCommand(
 		'workbench.action.openWalkthrough',

@@ -3,7 +3,6 @@ import * as vscode from 'vscode';
 import * as http from 'http';
 import { URL } from 'url';
 import {
-    CONFIG_KEY_FORCE_PKCE,
     GOOGLE_PROVIDER_ID,
     OAUTH_REDIRECT_URI
 } from '../../constants';

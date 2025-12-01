@@ -19,7 +19,7 @@ class AuthManager {
         this.providers.set(provider.id, provider);
     }
 
-    private async getStoredData(providerId: string): Promise<StoredAuthData | null> {
+    public async getStoredData(providerId: string): Promise<StoredAuthData | null> {
         const key = `auth.${providerId}:payload`;
         const data = await this.context.secrets.get(key);
         return data ? JSON.parse(data) : null;
@@ -120,3 +120,7 @@ export const onAuthChange = (): vscode.Event<{ providerId: string, identity: Aut
     }
     return authManager.onAuthChange;
 };
+
+export async function isLoggedIn(): Promise<boolean> {
+    return authManager && (await authManager.getStoredData(GOOGLE_PROVIDER_ID))?.email !== null;
+}
