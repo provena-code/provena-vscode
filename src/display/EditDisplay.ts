@@ -5,14 +5,44 @@ import * as devalue from 'devalue';
 
 export class EditDisplay {
 
+    private panel: vscode.WebviewPanel | undefined;
+
     constructor(
-        readonly panel: vscode.WebviewPanel,
-        context: vscode.ExtensionContext,
+        private readonly context: vscode.ExtensionContext,
     ) {
-        this.panel.webview.html = this.getWebviewContent(this.panel.webview, context.extensionUri);
+    }
+
+    private createNewPanel(context: vscode.ExtensionContext) {
+        const panel = vscode.window.createWebviewPanel(
+            'ta-display', // internal identifier
+            'Authorship', // title shown to user
+            vscode.ViewColumn.Two, // editor column to show
+            {
+                enableScripts: true, // allow JS in the webview
+            }
+        );
+        this.setWebviewContent(
+            panel.webview, this.context.extensionUri
+        );
+        panel.onDidDispose(() => {
+            this.panel = undefined;
+        });
+        return panel;
+    }
+
+    public reveal(preserveFocus: boolean = false) {
+        if (!this.panel) {
+            this.panel = this.createNewPanel(this.context);
+        }
+        if (!this.panel.visible) {
+            this.panel.reveal(undefined, preserveFocus);
+        }
     }
 
     public update(editList: EditList) {
+        if (!this.panel) {
+            return;
+        }
         const edits = editList.getEdits();
         const serializedEdits = devalue.stringify(edits, {
             EditNode: (node) => node instanceof EditNode && {
@@ -25,7 +55,7 @@ export class EditDisplay {
     }
 
 
-    private getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri) {
+    private setWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri) {
       // Resolve URIs for your bundled assets
         const scriptUri = webview.asWebviewUri(
             vscode.Uri.joinPath(extensionUri, 'media', 'bundle.js')
@@ -36,7 +66,7 @@ export class EditDisplay {
 
         const nonce = this.getNonce();
 
-        return /*html*/`
+        const content = /*html*/`
             <!DOCTYPE html>
             <html lang="en">
             <head>
@@ -59,6 +89,7 @@ export class EditDisplay {
             <script nonce="${nonce}" src="${scriptUri}"></script>
             </body>
             </html>`;
+        webview.html = content;
     }
 
     private getNonce() {

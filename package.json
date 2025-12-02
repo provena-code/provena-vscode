@@ -83,7 +83,9 @@
       },
       {
         "command": "provena.openAuthorshipView",
-        "title": "Open Provena Authorship View"
+        "title": "Open Provena Authorship View",
+        "icon": "$(open-editors-view-icon)",
+        "when": "!editorReadonly"
       }
     ],
     "configuration": {
@@ -95,6 +97,14 @@
           "description": "Whether or not Provena is active for this workspace."
         }
       }
+    },
+    "menus": {
+      "editor/title": [
+        {
+          "command": "provena.openAuthorshipView",
+          "group": "navigation@1"
+        }
+      ]
     }
   },
   "scripts": {

@@ -1,10 +1,9 @@
 
 import * as vscode from 'vscode';
 import { COMMAND_LOGOUT, GOOGLE_PROVIDER_ID } from '../constants';
+import { promptForLogin, showLoginSuccess, showLogoutSuccess, showNetworkError } from '../ui';
 import { GoogleProvider } from './providers/GoogleProvider';
 import { AuthIdentity, IdentityProvider, NetworkError, NoStoredIdentityError, StoredAuthData, TokenError } from './types';
-import { promptForLogin, showLogoutSuccess, showNetworkError } from '../ui';
-import { showLoginSuccess } from '../ui';
 
 class AuthManager {
     private providers: Map<string, IdentityProvider> = new Map();
@@ -19,12 +18,15 @@ class AuthManager {
         this.providers.set(provider.id, provider);
     }
 
-    public async getStoredData(providerId: string): Promise<StoredAuthData | null> {
+    public async getStoredData(providerId: string, fireChange: boolean = false): Promise<StoredAuthData | null> {
         const key = `auth.${providerId}:payload`;
         const data = await this.context.secrets.get(key);
-        return data ? JSON.parse(data) : null;
+        const parsedData = data ? JSON.parse(data) : null;
+        if (fireChange) {
+            this._onAuthChange.fire({ providerId, identity: parsedData });
+        }
+        return parsedData;
     }
-
     async getVerifiedGoogleEmail(): Promise<{ email: string, verified: boolean }> {
         const providerId = GOOGLE_PROVIDER_ID;
         const provider = this.providers.get(providerId);
@@ -121,6 +123,9 @@ export const onAuthChange = (): vscode.Event<{ providerId: string, identity: Aut
     return authManager.onAuthChange;
 };
 
-export async function isLoggedIn(): Promise<boolean> {
-    return authManager && (await authManager.getStoredData(GOOGLE_PROVIDER_ID))?.email !== null;
+export async function getCachedIdentity(fireChange: boolean): Promise<AuthIdentity | null> {
+    if (!authManager) {
+        return null;
+    }
+    return await authManager.getStoredData(GOOGLE_PROVIDER_ID, fireChange);
 }

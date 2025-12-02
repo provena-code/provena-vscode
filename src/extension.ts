@@ -1,18 +1,19 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-import { FileDataMap } from './recorder/FileDataMap';
+import { ensureLoggedIn, getCachedIdentity, initializeAuth, onAuthChange } from './auth';
+import { CONFIG_PROVENA_ACTIVE, CONTEXT_IS_LOGGED_IN, CONTEXT_USERNAME } from './constants';
 import { EditDisplay } from './display/EditDisplay';
 import { EventLogger } from './logging/EventLogger';
-import { initializeAuth, ensureLoggedIn, getVerifiedGoogleEmail, onAuthChange } from './auth';
-import { NoStoredIdentityError } from './auth/types';
-import { CONFIG_PROVENA_ACTIVE, CONTEXT_IS_LOGGED_IN, CONTEXT_USERNAME } from './constants';
-import { unknown } from 'zod';
+import { FileDataMap } from './recorder/FileDataMap';
+import { EditList } from 'provena';
 
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
+	console.log('start!');
+
 	initializeAuth(context);
 
 	let isLoggedIn = false;
@@ -48,18 +49,10 @@ export function activate(context: vscode.ExtensionContext) {
 		ensureLoggedIn();
 	}));
 
-	const panel = vscode.window.createWebviewPanel(
-		'ta-display', // internal identifier
-		'Authorship', // title shown to user
-		vscode.ViewColumn.Two, // editor column to show
-		{
-			enableScripts: true, // allow JS in the webview
-		}
-	);
-	const editDisplay = new EditDisplay(panel, context);
-	disposables.push(panel);
-
-	console.log('start!');
+	const editDisplay = new EditDisplay(context);
+	function updateEditDisplay(editList: EditList) {
+		editDisplay.update(editList);
+	}
 
 	let lastActiveDocument: vscode.TextDocument | undefined = undefined;
 	function switchActiveEditor(document: vscode.TextDocument) {
@@ -82,7 +75,7 @@ export function activate(context: vscode.ExtensionContext) {
 		} else {
 			// TODO: Ensure that last text == new text
 		}
-		editDisplay.update(editList);
+		updateEditDisplay(editList);
 		// logger.logFileFocus(document.uri.toString());
 	}
 
@@ -113,41 +106,38 @@ export function activate(context: vscode.ExtensionContext) {
 			lastCopiedText = clipboardText;
 		}
 		eventRecorder.recordDocumentChange(event);
-		editDisplay.update(editList);
+		updateEditDisplay(editList);
 		// console.log(`Current edits: ${editList.toString()}`);
 
 		showWarningIfNotConfigured(isLoggedIn);
 	}));
 
-	context.subscriptions.push(...disposables);
-
-	// Example of how to use getVerifiedGoogleEmail
-	// This will also trigger the login prompt on first use if configured
-	getVerifiedGoogleEmail().then(identity => {
-		console.log(`Logged in as ${identity.email} (verified: ${identity.verified})`);
-		showWalkthroughIfNeeded(true);
-	}).catch(err => {
-		if (err instanceof NoStoredIdentityError) {
-			console.log("User is not logged in and cancelled login prompt.");
-		} else {
-			console.error("An error occurred during authentication:", err);
-		}
-		showWalkthroughIfNeeded(false);
-	});
-
-	vscode.commands.registerCommand('provena.setActive', () => {
+	disposables.push(vscode.commands.registerCommand('provena.setActive', () => {
 		vscode.window.showInformationMessage("Provena is now active for this workspace.");
 		vscode.workspace.getConfiguration().update(CONFIG_PROVENA_ACTIVE, true, vscode.ConfigurationTarget.Workspace);
-	});
+	}));
 
-	vscode.commands.registerCommand('provena.setInactive', () => {
+	disposables.push(vscode.commands.registerCommand('provena.setInactive', () => {
 		vscode.window.showInformationMessage("Provena is disabled. To change this setting, ask your instructor.");
 		vscode.workspace.getConfiguration().update(CONFIG_PROVENA_ACTIVE, false, vscode.ConfigurationTarget.Workspace);
+	}));
+
+	disposables.push(vscode.commands.registerCommand('provena.openAuthorshipView', (documentURI: vscode.Uri) => {
+		editDisplay.reveal();
+		if (documentURI) {
+			const document = vscode.workspace.textDocuments.find(doc => doc.uri.toString() === documentURI.toString());
+			if (document) {
+				switchActiveEditor(document);
+			}
+		}
+	}));
+
+	getCachedIdentity(true).then(identity => {
+		console.log(identity);
+		showWalkthroughIfNeeded(identity !== null);
 	});
 
-	vscode.commands.registerCommand('provena.openAuthorshipView', () => {
-		editDisplay.panel.reveal(undefined, false);
-	});
+	context.subscriptions.push(...disposables);
 }
 
 function isProvenaActive(): boolean {
@@ -187,7 +177,7 @@ function showWarningIfNotConfigured(isLoggedIn: boolean) {
 }
 
 function showWalkthroughIfNeeded(isLoggedIn: boolean) {
-	if (!isProvenaConfigured(isLoggedIn)) {
+	if (isProvenaConfigured(isLoggedIn)) {
 		return;
 	}
 
