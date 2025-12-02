@@ -84,8 +84,7 @@
       {
         "command": "provena.openAuthorshipView",
         "title": "Open Provena Authorship View",
-        "icon": "$(open-editors-view-icon)",
-        "when": "!editorReadonly"
+        "icon": "$(open-editors-view-icon)"
       }
     ],
     "configuration": {
@@ -102,7 +101,8 @@
       "editor/title": [
         {
           "command": "provena.openAuthorshipView",
-          "group": "navigation@1"
+          "group": "navigation@1",
+          "when": "!editorReadonly"
         }
       ]
     }

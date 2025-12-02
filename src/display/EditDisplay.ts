@@ -6,6 +6,8 @@ import * as devalue from 'devalue';
 export class EditDisplay {
 
     private panel: vscode.WebviewPanel | undefined;
+    private isWebviewLoaded: boolean = false;
+    private onLoadedCallback: (() => void) | null = null;
 
     constructor(
         private readonly context: vscode.ExtensionContext,
@@ -26,6 +28,21 @@ export class EditDisplay {
         );
         panel.onDidDispose(() => {
             this.panel = undefined;
+        });
+
+        // Currently not used; keeping in case it becomes needed
+        // Seems like messages can be posted before it loads...
+        this.isWebviewLoaded = false;
+        this.onLoadedCallback = null;
+        // TODO: Need to add a postMessage when the webview is loaded
+        // so we don't try to post messages before it's ready
+        panel.webview.onDidReceiveMessage(message => {
+            console.log('Received message from webview:', message);
+            if (message.type === 'webviewLoaded') {
+                this.onLoadedCallback?.();
+                this.isWebviewLoaded = true;
+                this.onLoadedCallback = null;
+            }
         });
         return panel;
     }

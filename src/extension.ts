@@ -55,8 +55,8 @@ export function activate(context: vscode.ExtensionContext) {
 	}
 
 	let lastActiveDocument: vscode.TextDocument | undefined = undefined;
-	function switchActiveEditor(document: vscode.TextDocument) {
-		if (!document || document === lastActiveDocument) {
+	function switchActiveEditor(document: vscode.TextDocument, force: boolean = false) {
+		if (!document || (!force && document === lastActiveDocument)) {
 			return;
 		}
 		lastActiveDocument = document;
@@ -125,9 +125,11 @@ export function activate(context: vscode.ExtensionContext) {
 	disposables.push(vscode.commands.registerCommand('provena.openAuthorshipView', (documentURI: vscode.Uri) => {
 		editDisplay.reveal();
 		if (documentURI) {
+			console.log(`Opening authorship view for document: ${documentURI.toString()}`);
 			const document = vscode.workspace.textDocuments.find(doc => doc.uri.toString() === documentURI.toString());
+			console.log("found document:", document);
 			if (document) {
-				switchActiveEditor(document);
+				switchActiveEditor(document, true);
 			}
 		}
 	}));

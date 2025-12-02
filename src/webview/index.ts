@@ -43,4 +43,8 @@ window.onload = () => {
     if (params.has('test')) {
         loadData(defaultData);
     }
+
+    const vscode = acquireVsCodeApi();
+    vscode.postMessage({ type: 'webviewLoaded' }, '*');
+    console.log('Webview loaded');
 };
