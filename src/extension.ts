@@ -7,11 +7,12 @@ import { EditDisplay } from './display/EditDisplay';
 import { EventLogger } from './logging/EventLogger';
 import { FileDataMap } from './recorder/FileDataMap';
 import { EditList } from 'provena';
-import { SQLiteLogger } from './logging/SQLiteLogger';
+import { JSONLLogger as JSONLogger } from './logging/JSONLogger';
 import { loggingHash } from './util';
+import * as path from 'path';
+import { LogFileService, SyncResult } from './logging/LogFileService';
 
-let logger: EventLogger | null = null;
-let sqliteLogger: SQLiteLogger | null = null;
+let loggerToClose: EventLogger | null = null;
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -31,7 +32,20 @@ export function activate(context: vscode.ExtensionContext) {
 
 	EventLogger.configure('http://127.0.0.1:8000/');
 
-	logger = new EventLogger({
+	const rootPath = context.storageUri?.fsPath;
+	let logFileService: LogFileService | null = null;
+	if (rootPath) {
+		logFileService = new LogFileService({
+			getLastSyncedLogLine: async () => -1,
+			pushLogLines: async (lines: object[]) => {
+				console.log("Pushing log lines to server:", lines.length);
+				return SyncResult.Unavailable;
+			},
+		}, rootPath);
+		logFileService.pushUnsyncedLogs();
+	}
+
+	const logger = loggerToClose = new EventLogger({
 		SubjectID: '123',
 		ToolInstances: 'tool123',
 		Order: 0,
@@ -45,13 +59,8 @@ export function activate(context: vscode.ExtensionContext) {
 		TeamID: 'team123',
 	});
 
-	const rootPath = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0
-		? vscode.workspace.workspaceFolders[0].uri.fsPath
-		: undefined;
-	const dbPath = rootPath ? `${rootPath}/provena.db` : ':memory:';
-	sqliteLogger = new SQLiteLogger(dbPath);
-	sqliteLogger.register(logger);
-	sqliteLogger.initDatabase();
+
+	logFileService?.registerWithLogger(logger);
 
 	logger.logSessionStart();
 	const workspaceHash = loggingHash(rootPath || '');
@@ -75,6 +84,9 @@ export function activate(context: vscode.ExtensionContext) {
 		if (!document || (!force && document === lastActiveDocument)) {
 			return;
 		}
+
+		logger.logFileFocus(document.uri.toString());
+
 		lastActiveDocument = document;
 		console.log(`Document changed: ${document.uri.toString()}`);
 
@@ -121,6 +133,8 @@ export function activate(context: vscode.ExtensionContext) {
 			eventRecorder.recordCopy(clipboardText);
 			lastCopiedText = clipboardText;
 		}
+		// TODO: The event recorder should probably
+		// generate -> ProgSnap... but maybe the other way around?
 		eventRecorder.recordDocumentChange(event);
 		updateEditDisplay(editList);
 		// console.log(`Current edits: ${editList.toString()}`);
@@ -211,7 +225,7 @@ function showWalkthroughIfNeeded(isLoggedIn: boolean) {
 
 // This method is called when your extension is deactivated
 export function deactivate() {
-	// logger?.logProjectClose();
-	logger?.logSessionEnd();
-	sqliteLogger?.flush();
+	loggerToClose?.logSessionEnd();
+	// Flushes all listeners
+	loggerToClose?.flush();
 }

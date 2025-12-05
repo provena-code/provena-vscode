@@ -9,15 +9,16 @@ export type AdditionalColumns = Parameters<typeof DefaultService.getAdditionalCo
 export type CodeState = CodeStateSectionEntry[];
 
 export interface IEventHandler {
-    onEvent(event: MainTableEvent, codestate: CodeState): void;
+    onEvent(event: MainTableEvent): void;
+}
+
+export interface IFlushableEventHandler extends IEventHandler {
+    flush(): void;
 }
 
 export class EventLogger extends EventLoggerBase {
 
     private state: LogState;
-
-    private currentCodeStateID = 0;
-    private codeStateHistory: TempCodeStateEntry[] = [];
 
     private eventHandlers: IEventHandler[] = [];
 
@@ -41,64 +42,43 @@ export class EventLogger extends EventLoggerBase {
         this.eventHandlers.push(handler);
     }
 
+    public flush() {
+        for (const handler of this.eventHandlers) {
+            if ('flush' in handler) {
+                (handler as IFlushableEventHandler).flush();
+            }
+        }
+    }
+
     public updateState(newState: Partial<LogState>) {
         this.state = { ...this.state, ...newState };
     }
 
-    public updateSingleFileCodeState(code: string) {
-        this.updateMultipartCodeState([{
-            Code: code,
-        }]);
-    }
-
-    public updateMultipartCodeState(codestate: CodeState) {
-        this.currentCodeStateID++;
-        const nextCodeState = {
-            temp_codestate_id: this.currentCodeStateID.toString(),
-            sections: codestate,
-        };
-        this.codeStateHistory.push(nextCodeState);
-    }
-
     public logEvent<T extends Partial<MainTableEvent>>(eventType: EventType, eventSpecificColumns: T) {
-        console.log("Preparing to log event of type:", eventType, "with specific columns:", eventSpecificColumns);
+        // console.log("Preparing to log event of type:", eventType, "with specific columns:", eventSpecificColumns);
         const now = Date.now();
-        // ISO 8601 format with milliseconds in local timezone
         const timestamp = new Date(now).toISOString();
-        // Add ms
-        console.log("Generated timestamp for event:", timestamp);
-
-        if (this.codeStateHistory.length === 0) {
-            this.addEmptyCodeState();
-        }
 
         const event: MainTableEvent = {
             EventType: eventType,
             EventID: generateID(),
             SubjectID: this.state.SubjectID,
             ToolInstances: this.state.ToolInstances,
-            CodeStateID: this.currentCodeStateID.toString(),
+            // Filled in by the server
+            CodeStateID: null,
             Order: this.state.Order,
-            // Assuming we update the spec to have timezone included
+            // Assuming we update the spec to have timezone included in the timestamp
             ClientTimestamp: timestamp,
             ...eventSpecificColumns
         };
-        console.log("Constructed event:", event);
+        // console.log("Constructed event:", event);
 
-        // TODO: Should the server modify this to make order global...
-        // or should events always be within session (I like the former)
+        // Scoped to just this session
         this.state.Order = (this.state.Order ?? 0) + 1;
 
         for (const handler of this.eventHandlers) {
-            handler.onEvent(event, this.codeStateHistory[this.codeStateHistory.length - 1].sections);
+            handler.onEvent(event);
         }
-    }
-
-    private addEmptyCodeState() {
-        this.currentCodeStateID++;
-        this.codeStateHistory.push(
-            {temp_codestate_id: this.currentCodeStateID.toString(), sections: [], is_blank: true}
-        );
     }
 
     private lastSessionID: string | null = null;

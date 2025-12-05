@@ -1,36 +1,32 @@
 import { MainTableEvent } from "../api";
-import { CodeState, IEventHandler } from "./EventLogger";
-
-export type EventWithCodestate = {
-    event: MainTableEvent;
-    codestate: CodeState;
-}
+import { CodeState, IFlushableEventHandler } from "./EventLogger";
 
 export interface IBatchEventHandler {
-    onEvents(events: EventWithCodestate[]): void;
+    onEvents(events: MainTableEvent[]): Promise<boolean>;
 }
 
-export class BatchEventHandler implements IEventHandler {
+export class BatchEventHandler implements IFlushableEventHandler {
 
-    private eventQueue: EventWithCodestate[] = [];
+    private eventQueue: MainTableEvent[] = [];
     private timer: NodeJS.Timeout | null = null;
+    private eventsSinceLastFlushAttempt: number = 0;
+    private isFlushing: boolean = false;
 
-    private readonly batchEventHandlers: IBatchEventHandler[] = [];
 
     public constructor(
+        private readonly batchEventHandler: IBatchEventHandler,
         public readonly maxEventsPerBatch: number = 20,
         public readonly maxWaitTimeMs: number = 500
     ) {
     }
 
-    public registerBatchEventHandler(handler: IBatchEventHandler) {
-        this.batchEventHandlers.push(handler);
-        return this;
-    }
-
-    onEvent(event: MainTableEvent, codestate: CodeState): void {
-        this.eventQueue.push({ event, codestate });
-        if (this.eventQueue.length >= this.maxEventsPerBatch) {
+    onEvent(event: MainTableEvent): void {
+        this.eventQueue.push(event);
+        if (this.isFlushing) {
+            return;
+        }
+        this.eventsSinceLastFlushAttempt++;
+        if (this.eventsSinceLastFlushAttempt >= this.maxEventsPerBatch) {
             this.flush();
         } else if (!this.timer) {
             this.timer = setTimeout(() => this.flush(), this.maxWaitTimeMs);
@@ -41,17 +37,19 @@ export class BatchEventHandler implements IEventHandler {
         if (this.eventQueue.length === 0) {
             return;
         }
-
-        // Notify all registered batch event handlers
-        for (const handler of this.batchEventHandlers) {
-            handler.onEvents(this.eventQueue);
-        }
-
-        // Clear the queues and reset the timer
-        this.eventQueue = [];
+        this.isFlushing = true;
+        this.eventsSinceLastFlushAttempt = 0;
         if (this.timer) {
             clearTimeout(this.timer);
             this.timer = null;
         }
+
+        this.batchEventHandler.onEvents(this.eventQueue).then(success => {
+            this.isFlushing = false;
+            if (success) {
+                // Only clear the queue if the flush was successful
+                this.eventQueue = [];
+            }
+        });
     }
 }
