@@ -1,7 +1,7 @@
 import { EventLogger } from "./EventLogger";
 import { BatchEventHandler, EventWithCodestate, IBatchEventHandler } from "./BatchEventHandler";
-import BetterSqlite3 from 'better-sqlite3';
-import Database from "better-sqlite3";
+import Database = require("better-sqlite3");
+
 import mainTableSchema from './Schemas/MainTable.json';
 import codestatesTableSchema from './Schemas/CodestatesTable.json';
 
@@ -22,7 +22,7 @@ export class SQLiteLogger implements IBatchEventHandler {
 
     private readonly batchEventHandler: BatchEventHandler;
 
-    private readonly database: BetterSqlite3.Database;
+    private readonly database: Database.Database;
 
     constructor(
         private readonly databasePath: string,
@@ -30,6 +30,8 @@ export class SQLiteLogger implements IBatchEventHandler {
         this.batchEventHandler = new BatchEventHandler(20, 200);
         this.batchEventHandler.registerBatchEventHandler(this);
 
+        // console.log('bsql', BetterSqlite3);
+        console.log('Database', Database);
         this.database = new Database(this.databasePath, {
 
         });
