@@ -25,7 +25,9 @@
             "id": "use-provena",
             "title": "Is this workspace for school?",
             "description": "Provena is a tool for showing your work on programming assignments. Will you use this workspace for CSC 111?\n[Yes, activate Provena](command:provena.setActive)\n[No, disable Provena](command:provena.setInactive)",
-            "media": {"markdown": "media/about.md" },
+            "media": {
+              "markdown": "media/about.md"
+            },
             "completionEvents": [
               "onCommand:provena.setActive",
               "onCommand:provena.setInactive"
@@ -35,7 +37,9 @@
             "id": "login-complete",
             "title": "You're already signed in",
             "description": "You are already signed in.\n[Sign Out](command:provena.logout)",
-            "media": {"markdown": "media/about.md" },
+            "media": {
+              "markdown": "media/about.md"
+            },
             "completionEvents": [
               "onContext:provena.loggedIn"
             ],
@@ -45,7 +49,9 @@
             "id": "login-required",
             "title": "Sign In",
             "description": "You must be signed in through your Google account to show your work with Provena.\n[Sign In](command:provena.login)",
-            "media": {"markdown": "media/about.md" },
+            "media": {
+              "markdown": "media/about.md"
+            },
             "completionEvents": [
               "onContext:provena.loggedIn"
             ],
@@ -55,7 +61,9 @@
             "id": "see-authorship",
             "title": "Show your work",
             "description": "Provena gives you credit for the code you write yourself, and lets you document where you got help from other sources.\n[See how it works](command:provena.openAuthorshipView)",
-            "media": {"markdown": "media/about.md" },
+            "media": {
+              "markdown": "media/about.md"
+            },
             "completionEvents": [
               "onCommand:provena.openAuthorshipView"
             ],
@@ -121,6 +129,7 @@
     "gen": "npx openapi-typescript-codegen --input http://localhost:8000/openapi.json --output ./src/api --client axios"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/d3": "^7.4.3",
     "@types/mocha": "^10.0.9",
     "@types/node": "20.x",
@@ -141,6 +150,7 @@
   },
   "dependencies": {
     "axios": "^1.13.2",
+    "better-sqlite3": "^12.5.0",
     "d3": "^7.9.0",
     "dagre-d3-es": "^7.0.11",
     "devalue": "^5.3.2",

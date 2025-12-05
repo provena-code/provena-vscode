@@ -7,7 +7,11 @@ import { EditDisplay } from './display/EditDisplay';
 import { EventLogger } from './logging/EventLogger';
 import { FileDataMap } from './recorder/FileDataMap';
 import { EditList } from 'provena';
+import { SQLiteLogger } from './logging/SQLiteLogger';
+import { loggingHash } from './util';
 
+let logger: EventLogger | null = null;
+let sqliteLogger: SQLiteLogger | null = null;
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -27,7 +31,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	EventLogger.configure('http://127.0.0.1:8000/');
 
-	const logger = new EventLogger({
+	logger = new EventLogger({
 		SubjectID: '123',
 		ToolInstances: 'tool123',
 		Order: 0,
@@ -40,6 +44,18 @@ export function activate(context: vscode.ExtensionContext) {
 		ExperimentalCondition: 'condition123',
 		TeamID: 'team123',
 	});
+
+	const rootPath = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0
+		? vscode.workspace.workspaceFolders[0].uri.fsPath
+		: undefined;
+	const dbPath = rootPath ? `${rootPath}/provena.db` : ':memory:';
+	sqliteLogger = new SQLiteLogger(dbPath);
+	sqliteLogger.register(logger);
+	sqliteLogger.initDatabase();
+
+	logger.logSessionStart();
+	const workspaceHash = loggingHash(rootPath || '');
+	logger.logProjectOpen(workspaceHash);
 
 
 	const fileDataMap = new FileDataMap(true);
@@ -194,4 +210,8 @@ function showWalkthroughIfNeeded(isLoggedIn: boolean) {
 }
 
 // This method is called when your extension is deactivated
-export function deactivate() {}
+export function deactivate() {
+	// logger?.logProjectClose();
+	logger?.logSessionEnd();
+	sqliteLogger?.flush();
+}

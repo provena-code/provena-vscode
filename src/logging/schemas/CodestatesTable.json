@@ -1,0 +1,32 @@
+{
+    "table_name": "CodeStates",
+    "columns": [
+        {
+            "name": "CodeStateID",
+            "datatype": {
+                "type": "string",
+                "max_str_length": "ID"
+            },
+            "nullable": false,
+            "description": "Unique identifier for the code state."
+        },
+        {
+            "name": "Code",
+            "datatype": {
+                "type": "text",
+                "max_str_length": null
+            },
+            "nullable": false,
+            "description": "The actual code content."
+        },
+        {
+            "name": "CodeStateSection",
+            "datatype": {
+                "type": "string",
+                "max_str_length": "Path"
+            },
+            "nullable": true,
+            "description": "The section of the code state."
+        }
+    ]
+}

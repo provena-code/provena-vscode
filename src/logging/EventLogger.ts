@@ -8,12 +8,18 @@ export type AdditionalColumns = Parameters<typeof DefaultService.getAdditionalCo
 
 export type CodeState = CodeStateSectionEntry[];
 
+export interface IEventHandler {
+    onEvent(event: MainTableEvent, codestate: CodeState): void;
+}
+
 export class EventLogger extends EventLoggerBase {
 
     private state: LogState;
 
     private currentCodeStateID = 0;
     private codeStateHistory: TempCodeStateEntry[] = [];
+
+    private eventHandlers: IEventHandler[] = [];
 
     constructor(startState: LogState) {
         super();
@@ -29,6 +35,10 @@ export class EventLogger extends EventLoggerBase {
         OpenAPI.BASE = baseURL;
         // OpenAPI.CREDENTIALS = 'include';
         // OpenAPI.WITH_CREDENTIALS = true;
+    }
+
+    public registerEventHandler(handler: IEventHandler) {
+        this.eventHandlers.push(handler);
     }
 
     public updateState(newState: Partial<LogState>) {
@@ -79,33 +89,9 @@ export class EventLogger extends EventLoggerBase {
         // or should events always be within session (I like the former)
         this.state.Order = (this.state.Order ?? 0) + 1;
 
-        // TODO: Batch this
-        const lastSentCodeStateID = this.currentCodeStateID;
-
-        console.log("Logging event:", event, "with codestates:", this.codeStateHistory);
-        DefaultService.addEventsWithCodeStates({
-            events: [event],
-            code_states: this.codeStateHistory
-        }).then((response: LogResult) => {
-            console.log("Event logged successfully:", response);
-            if (response?.success) {
-                // Remove any code states that predate the current one
-                // Keep the current one, since we'll still need it.
-                while (true) {
-                    const codeState = this.codeStateHistory[0];
-                    if (!codeState) {
-                        break;
-                    }
-                    const numericCSID = parseInt(codeState.temp_codestate_id);
-                    if (numericCSID >= lastSentCodeStateID) {
-                        break;
-                    }
-                    this.codeStateHistory.shift();
-                }
-            }
-        }).catch((error: any) => {
-            ErrorHandler.logError("Failed to log event:", error);
-        });
+        for (const handler of this.eventHandlers) {
+            handler.onEvent(event, this.codeStateHistory[this.codeStateHistory.length - 1].sections);
+        }
     }
 
     private addEmptyCodeState() {
@@ -127,7 +113,7 @@ export class EventLogger extends EventLoggerBase {
     }
 
     logSessionEnd() {
-        if (this.lastSessionID == null) {
+        if (this.lastSessionID === null) {
             ErrorHandler.logError("Session not started");
             this.lastSessionID = generateID();
         }
