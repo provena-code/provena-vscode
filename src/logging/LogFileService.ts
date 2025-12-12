@@ -1,8 +1,8 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { EventLogger } from './EventLogger';
-import { BatchEventHandler, IBatchEventHandler } from './BatchEventHandler';
 import { MainTableEvent } from '../api';
+import { BatchEventHandler, IBatchEventHandler } from './BatchEventHandler';
+import { EventLogger } from './EventLogger';
 import { JSONLLogger } from './JSONLogger';
 import { generateID } from './Util';
 
@@ -43,7 +43,7 @@ export class LogFileService implements IBatchEventHandler {
     }
 
     async onEvents(events: MainTableEvent[]): Promise<boolean> {
-        const syncResult = await this.syncer.pushLogLines(events)
+        const syncResult = await this.syncer.pushLogLines(events);
         if (syncResult === SyncResult.Success) {
             this.nSyncedLogs += events.length;
             await this.setCachedLastSyncedLogLine(this.localLogger.logPath, this.nSyncedLogs);
