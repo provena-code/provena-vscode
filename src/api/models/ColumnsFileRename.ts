@@ -5,6 +5,7 @@
 import type { EventInitiator } from './EventInitiator';
 export type ColumnsFileRename = {
     CodeStateSection: string;
+    Code?: (string | null);
     DestinationCodeStateSection: string;
     EventInitiator?: (EventInitiator | null);
 };

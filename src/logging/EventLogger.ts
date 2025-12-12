@@ -1,8 +1,8 @@
+import { CodeStateSectionEntry, DefaultService, EventType, MainTableEvent, OpenAPI } from "../api";
 import { ErrorHandler } from "./ErrorHandler";
 import { EventLoggerBase } from "./EventLoggerBase";
 import { LogState } from "./LogState";
 import { generateID } from "./Util";
-import { MainTableEvent, EventType, DefaultService, OpenAPI, TempCodeStateEntry, LogResult, CodeStateSectionEntry } from "../api";
 
 export type AdditionalColumns = Parameters<typeof DefaultService.getAdditionalColumnTypesPlaceholderGet>[0];
 
@@ -22,10 +22,13 @@ export class EventLogger extends EventLoggerBase {
 
     private eventHandlers: IEventHandler[] = [];
 
-    constructor(startState: LogState) {
+    constructor(toolInstances: string, subjectID?: string) {
         super();
-        this.state = startState;
-        this.state.Order = this.state.Order || 0;
+        this.state = {
+            ToolInstances: toolInstances,
+            Order: 0,
+            SubjectID: subjectID,
+        };
     }
 
     // TODO: Consider authentication, etc., and better understand this
@@ -54,7 +57,7 @@ export class EventLogger extends EventLoggerBase {
         this.state = { ...this.state, ...newState };
     }
 
-    public logEvent<T extends Partial<MainTableEvent>>(eventType: EventType, eventSpecificColumns: T) {
+    public logEvent<T extends Partial<MainTableEvent>>(eventType: EventType, eventSpecificColumns: T): MainTableEvent {
         // console.log("Preparing to log event of type:", eventType, "with specific columns:", eventSpecificColumns);
         const now = Date.now();
         const timestamp = new Date(now).toISOString();
@@ -62,23 +65,24 @@ export class EventLogger extends EventLoggerBase {
         const event: MainTableEvent = {
             EventType: eventType,
             EventID: generateID(),
-            SubjectID: this.state.SubjectID,
+            SubjectID: this.state.SubjectID!,
             ToolInstances: this.state.ToolInstances,
             // Filled in by the server
-            CodeStateID: null,
+            CodeStateID: undefined!,
             Order: this.state.Order,
-            // Assuming we update the spec to have timezone included in the timestamp
             ClientTimestamp: timestamp,
             ...eventSpecificColumns
         };
         // console.log("Constructed event:", event);
 
         // Scoped to just this session
-        this.state.Order = (this.state.Order ?? 0) + 1;
+        this.state.Order = this.state.Order + 1;
 
         for (const handler of this.eventHandlers) {
             handler.onEvent(event);
         }
+
+        return event;
     }
 
     private lastSessionID: string | null = null;
@@ -89,7 +93,7 @@ export class EventLogger extends EventLoggerBase {
         }
         this.lastSessionID = sessionID || generateID();
 
-        super.logSessionStart(this.lastSessionID);
+        return super.logSessionStart(this.lastSessionID);
     }
 
     logSessionEnd() {
@@ -97,7 +101,8 @@ export class EventLogger extends EventLoggerBase {
             ErrorHandler.logError("Session not started");
             this.lastSessionID = generateID();
         }
-        super.logSessionEnd(this.lastSessionID);
+        const result = super.logSessionEnd(this.lastSessionID);
         this.lastSessionID = null;
+        return result;
     }
 }

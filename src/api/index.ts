@@ -7,6 +7,7 @@ export { CancelablePromise, CancelError } from './core/CancelablePromise';
 export { OpenAPI } from './core/OpenAPI';
 export type { OpenAPIConfig } from './core/OpenAPI';
 
+export type { AssignmentSubjectsResponseItem } from './models/AssignmentSubjectsResponseItem';
 export type { Body_addEventsWithCodeStates } from './models/Body_addEventsWithCodeStates';
 export type { CodeStateSectionEntry } from './models/CodeStateSectionEntry';
 export type { ColumnsCompile } from './models/ColumnsCompile';

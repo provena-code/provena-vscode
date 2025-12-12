@@ -21,19 +21,16 @@ export type MainTableEvent = {
     CourseSectionID?: (string | null);
     TermID?: (string | null);
     AssignmentID?: (string | null);
-    AssignmentIsGraded?: (boolean | null);
     ProblemID?: (string | null);
-    ProblemIsGraded?: (boolean | null);
     Attempt?: (number | null);
     ExperimentalCondition?: (string | null);
-    TeamID?: (string | null);
     LoggingErrorID?: (string | null);
-    IsFabricatedEvent?: (boolean | null);
     ParentEventID?: (string | null);
     SessionID?: (string | null);
     ProjectID?: (string | null);
     ResourceID?: (string | null);
     CodeStateSection?: (string | null);
+    Code?: (string | null);
     DestinationCodeStateSection?: (string | null);
     EventInitiator?: (EventInitiator | null);
     EditType?: (EditType | null);
@@ -52,7 +49,7 @@ export type MainTableEvent = {
     InterventionCategory?: (InterventionCategory | null);
     InterventionType?: (string | null);
     InterventionMessage?: (string | null);
-    InsertedText?: (string | null);
-    DeletedText?: (string | null);
+    InsertText?: (string | null);
+    DeleteText?: (string | null);
+    DeleteLength?: (number | null);
 };
-

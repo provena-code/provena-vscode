@@ -5,6 +5,7 @@
 import type { EventInitiator } from './EventInitiator';
 export type ColumnsFileFocus = {
     CodeStateSection: string;
+    Code?: (string | null);
     EventInitiator?: (EventInitiator | null);
 };
 

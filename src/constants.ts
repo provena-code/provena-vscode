@@ -15,6 +15,5 @@ export const COMMAND_LOGIN = 'provena.login';
 export const COMMAND_LOGOUT = 'provena.logout';
 
 export const CONTEXT_IS_LOGGED_IN = 'provena.loggedIn';
-export const CONTEXT_USERNAME = 'provena.username';
 
 export const CONFIG_PROVENA_ACTIVE = 'provena.active';

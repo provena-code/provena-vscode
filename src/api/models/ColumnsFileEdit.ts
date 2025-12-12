@@ -5,11 +5,14 @@
 import type { EditType } from './EditType';
 import type { EventInitiator } from './EventInitiator';
 export type ColumnsFileEdit = {
+    ParentEventID?: (string | null);
     CodeStateSection: string;
+    Code?: (string | null);
     EventInitiator?: (EventInitiator | null);
     EditType: EditType;
     SourceLocation?: (string | null);
-    InsertedText?: (string | null);
-    DeletedText?: (string | null);
+    InsertText?: (string | null);
+    DeleteText?: (string | null);
+    DeleteLength?: (string | null);
 };
 

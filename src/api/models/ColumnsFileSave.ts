@@ -5,6 +5,7 @@
 import type { EventInitiator } from './EventInitiator';
 export type ColumnsFileSave = {
     CodeStateSection: string;
+    Code: string;
     EventInitiator?: (EventInitiator | null);
 };
 

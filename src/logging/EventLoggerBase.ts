@@ -1,8 +1,8 @@
-import { EventType } from "../api";
 import * as PS2 from "../api";
+import { EventType } from "../api";
 
 export abstract class EventLoggerBase {
-    public abstract logEvent(eventType: EventType, eventSpecificColumns: Partial<PS2.MainTableEvent>): void;
+    public abstract logEvent(eventType: EventType, eventSpecificColumns: Partial<PS2.MainTableEvent>): PS2.MainTableEvent;
 
     /**
      * Logs a "Session.Start" event to the server.
@@ -11,8 +11,8 @@ export abstract class EventLoggerBase {
      * @param sessionID - SessionID: A session is generally defined as a distinct period of time during which a student is interacting with a tool/program. Sessions are somewhat ill-defined and may vary across datasets. Session IDs must be unique across subjects and across distinct sessions. This ID may be the EventID of the SessionStart event that initiated the session, or it may be derived independently.
      * @returns void
      */
-    public logSessionStart(sessionID: string) {
-        this.logEvent(EventType.SESSION_START, {
+    public logSessionStart(sessionID: string): PS2.MainTableEvent {
+        return this.logEvent(EventType.SESSION_START, {
             SessionID: sessionID
         });
     }
@@ -25,8 +25,8 @@ export abstract class EventLoggerBase {
      * @param sessionID - SessionID: A session is generally defined as a distinct period of time during which a student is interacting with a tool/program. Sessions are somewhat ill-defined and may vary across datasets. Session IDs must be unique across subjects and across distinct sessions. This ID may be the EventID of the SessionStart event that initiated the session, or it may be derived independently.
      * @returns void
      */
-    public logSessionEnd(sessionID: string) {
-        this.logEvent(EventType.SESSION_END, {
+    public logSessionEnd(sessionID: string): PS2.MainTableEvent {
+        return this.logEvent(EventType.SESSION_END, {
             SessionID: sessionID
         });
     }
@@ -40,8 +40,8 @@ export abstract class EventLoggerBase {
      * Data producers should only generate Project.* events and ProjectID values if the underlying data source has an explicit concept of "project".
      * @returns void
      */
-    public logProjectOpen(projectID: string) {
-        this.logEvent(EventType.PROJECT_OPEN, {
+    public logProjectOpen(projectID: string): PS2.MainTableEvent {
+        return this.logEvent(EventType.PROJECT_OPEN, {
             ProjectID: projectID
         });
     }
@@ -55,8 +55,8 @@ export abstract class EventLoggerBase {
      * Data producers should only generate Project.* events and ProjectID values if the underlying data source has an explicit concept of "project".
      * @returns void
      */
-    public logProjectClose(projectID: string) {
-        this.logEvent(EventType.PROJECT_CLOSE, {
+    public logProjectClose(projectID: string): PS2.MainTableEvent {
+        return this.logEvent(EventType.PROJECT_CLOSE, {
             ProjectID: projectID
         });
     }
@@ -72,14 +72,15 @@ export abstract class EventLoggerBase {
      * Note that for events where there is both a "source" file/resource and a "destination" file/resource, the CodeStateSection value indicates the "source".  For example, for File.Copy and File.Rename events, the CodeStateSection names the "original" file.  (Note that in the case of File.Rename events, the CodeStateSection value identifies a file or resource in the previous CodeState.)
      * Note that a CodeStateSection may only refer to a single file.  Cases where multiple resources are accessed or modified at the same time (such as using "Save All" to save all files) should be represented as multiple events, each with its own distinct CodeStateSection.
      * Also note that CodeStateSections should not be used for CodeStates in the Table format, as all table data is contained in the same file.
+     * @param code - Code: The contents of the CodeStateSection **after** the given event has occurred.
      * @param eventInitiator - EventInitiator: Events are typically performed by either the user, the tool, or the instructor. When known, this column should specify which one instigated the event.
      * Note that user, instructor, and team members can initiate actions either directly or indirectly. A direct action is one the person purposefully makes (like typing or editing a program with mouse clicks); an indirect action is one that is caused by a user action, but not done directly by the user (like when a user accepts an autocomplete recommendation and the text is filled in).
      * Users are encouraged to apply the built-in enum values whenever possible, but if a new value is necessary, the coder may define a new custom enum value and document the new value in the README.md.
      * @returns void
      */
-    public logFileCreate(codeStateSection: string, eventInitiator?: PS2.EventInitiator) {
-        this.logEvent(EventType.FILE_CREATE, {
-            CodeStateSection: codeStateSection, EventInitiator: eventInitiator
+    public logFileCreate(codeStateSection: string, code?: string, eventInitiator?: PS2.EventInitiator): PS2.MainTableEvent {
+        return this.logEvent(EventType.FILE_CREATE, {
+            CodeStateSection: codeStateSection, Code: code, EventInitiator: eventInitiator
         });
     }
 
@@ -99,8 +100,8 @@ export abstract class EventLoggerBase {
      * Users are encouraged to apply the built-in enum values whenever possible, but if a new value is necessary, the coder may define a new custom enum value and document the new value in the README.md.
      * @returns void
      */
-    public logFileDelete(codeStateSection: string, eventInitiator?: PS2.EventInitiator) {
-        this.logEvent(EventType.FILE_DELETE, {
+    public logFileDelete(codeStateSection: string, eventInitiator?: PS2.EventInitiator): PS2.MainTableEvent {
+        return this.logEvent(EventType.FILE_DELETE, {
             CodeStateSection: codeStateSection, EventInitiator: eventInitiator
         });
     }
@@ -116,14 +117,15 @@ export abstract class EventLoggerBase {
      * Note that for events where there is both a "source" file/resource and a "destination" file/resource, the CodeStateSection value indicates the "source".  For example, for File.Copy and File.Rename events, the CodeStateSection names the "original" file.  (Note that in the case of File.Rename events, the CodeStateSection value identifies a file or resource in the previous CodeState.)
      * Note that a CodeStateSection may only refer to a single file.  Cases where multiple resources are accessed or modified at the same time (such as using "Save All" to save all files) should be represented as multiple events, each with its own distinct CodeStateSection.
      * Also note that CodeStateSections should not be used for CodeStates in the Table format, as all table data is contained in the same file.
+     * @param code - Code: The contents of the CodeStateSection **after** the given event has occurred.
      * @param eventInitiator - EventInitiator: Events are typically performed by either the user, the tool, or the instructor. When known, this column should specify which one instigated the event.
      * Note that user, instructor, and team members can initiate actions either directly or indirectly. A direct action is one the person purposefully makes (like typing or editing a program with mouse clicks); an indirect action is one that is caused by a user action, but not done directly by the user (like when a user accepts an autocomplete recommendation and the text is filled in).
      * Users are encouraged to apply the built-in enum values whenever possible, but if a new value is necessary, the coder may define a new custom enum value and document the new value in the README.md.
      * @returns void
      */
-    public logFileOpen(codeStateSection: string, eventInitiator?: PS2.EventInitiator) {
-        this.logEvent(EventType.FILE_OPEN, {
-            CodeStateSection: codeStateSection, EventInitiator: eventInitiator
+    public logFileOpen(codeStateSection: string, code?: string, eventInitiator?: PS2.EventInitiator): PS2.MainTableEvent {
+        return this.logEvent(EventType.FILE_OPEN, {
+            CodeStateSection: codeStateSection, Code: code, EventInitiator: eventInitiator
         });
     }
 
@@ -143,8 +145,8 @@ export abstract class EventLoggerBase {
      * Users are encouraged to apply the built-in enum values whenever possible, but if a new value is necessary, the coder may define a new custom enum value and document the new value in the README.md.
      * @returns void
      */
-    public logFileClose(codeStateSection: string, eventInitiator?: PS2.EventInitiator) {
-        this.logEvent(EventType.FILE_CLOSE, {
+    public logFileClose(codeStateSection: string, eventInitiator?: PS2.EventInitiator): PS2.MainTableEvent {
+        return this.logEvent(EventType.FILE_CLOSE, {
             CodeStateSection: codeStateSection, EventInitiator: eventInitiator
         });
     }
@@ -160,14 +162,15 @@ export abstract class EventLoggerBase {
      * Note that for events where there is both a "source" file/resource and a "destination" file/resource, the CodeStateSection value indicates the "source".  For example, for File.Copy and File.Rename events, the CodeStateSection names the "original" file.  (Note that in the case of File.Rename events, the CodeStateSection value identifies a file or resource in the previous CodeState.)
      * Note that a CodeStateSection may only refer to a single file.  Cases where multiple resources are accessed or modified at the same time (such as using "Save All" to save all files) should be represented as multiple events, each with its own distinct CodeStateSection.
      * Also note that CodeStateSections should not be used for CodeStates in the Table format, as all table data is contained in the same file.
+     * @param code - Code: The contents of the CodeStateSection **after** the given event has occurred.
      * @param eventInitiator - EventInitiator: Events are typically performed by either the user, the tool, or the instructor. When known, this column should specify which one instigated the event.
      * Note that user, instructor, and team members can initiate actions either directly or indirectly. A direct action is one the person purposefully makes (like typing or editing a program with mouse clicks); an indirect action is one that is caused by a user action, but not done directly by the user (like when a user accepts an autocomplete recommendation and the text is filled in).
      * Users are encouraged to apply the built-in enum values whenever possible, but if a new value is necessary, the coder may define a new custom enum value and document the new value in the README.md.
      * @returns void
      */
-    public logFileSave(codeStateSection: string, eventInitiator?: PS2.EventInitiator) {
-        this.logEvent(EventType.FILE_SAVE, {
-            CodeStateSection: codeStateSection, EventInitiator: eventInitiator
+    public logFileSave(codeStateSection: string, code: string, eventInitiator?: PS2.EventInitiator): PS2.MainTableEvent {
+        return this.logEvent(EventType.FILE_SAVE, {
+            CodeStateSection: codeStateSection, Code: code, EventInitiator: eventInitiator
         });
     }
 
@@ -187,11 +190,12 @@ export abstract class EventLoggerBase {
      * @param eventInitiator - EventInitiator: Events are typically performed by either the user, the tool, or the instructor. When known, this column should specify which one instigated the event.
      * Note that user, instructor, and team members can initiate actions either directly or indirectly. A direct action is one the person purposefully makes (like typing or editing a program with mouse clicks); an indirect action is one that is caused by a user action, but not done directly by the user (like when a user accepts an autocomplete recommendation and the text is filled in).
      * Users are encouraged to apply the built-in enum values whenever possible, but if a new value is necessary, the coder may define a new custom enum value and document the new value in the README.md.
+     * @param code - Code: The contents of the CodeStateSection **after** the given event has occurred.
      * @returns void
      */
-    public logFileRename(codeStateSection: string, destinationCodeStateSection: string, eventInitiator?: PS2.EventInitiator) {
-        this.logEvent(EventType.FILE_RENAME, {
-            CodeStateSection: codeStateSection, DestinationCodeStateSection: destinationCodeStateSection, EventInitiator: eventInitiator
+    public logFileRename(codeStateSection: string, destinationCodeStateSection: string, eventInitiator?: PS2.EventInitiator, code?: string): PS2.MainTableEvent {
+        return this.logEvent(EventType.FILE_RENAME, {
+            CodeStateSection: codeStateSection, DestinationCodeStateSection: destinationCodeStateSection, EventInitiator: eventInitiator, Code: code
         });
     }
 
@@ -211,18 +215,19 @@ export abstract class EventLoggerBase {
      * @param eventInitiator - EventInitiator: Events are typically performed by either the user, the tool, or the instructor. When known, this column should specify which one instigated the event.
      * Note that user, instructor, and team members can initiate actions either directly or indirectly. A direct action is one the person purposefully makes (like typing or editing a program with mouse clicks); an indirect action is one that is caused by a user action, but not done directly by the user (like when a user accepts an autocomplete recommendation and the text is filled in).
      * Users are encouraged to apply the built-in enum values whenever possible, but if a new value is necessary, the coder may define a new custom enum value and document the new value in the README.md.
+     * @param code - Code: The contents of the CodeStateSection **after** the given event has occurred.
      * @returns void
      */
-    public logFileCopy(codeStateSection: string, destinationCodeStateSection: string, eventInitiator?: PS2.EventInitiator) {
-        this.logEvent(EventType.FILE_COPY, {
-            CodeStateSection: codeStateSection, DestinationCodeStateSection: destinationCodeStateSection, EventInitiator: eventInitiator
+    public logFileCopy(codeStateSection: string, destinationCodeStateSection: string, eventInitiator?: PS2.EventInitiator, code?: string): PS2.MainTableEvent {
+        return this.logEvent(EventType.FILE_COPY, {
+            CodeStateSection: codeStateSection, DestinationCodeStateSection: destinationCodeStateSection, EventInitiator: eventInitiator, Code: code
         });
     }
 
 
     /**
      * Logs a "File.Edit" event to the server.
-     * Indicates that the contents of a file were edited.
+     * Indicates that the contents of a file were edited. If a ParentEventID is provided, this indicates that multiple edits took place in the same action.
      *
      * @param codeStateSection - CodeStateSection: A CodeStateSection value names a single file or resource within a CodeState which is specifically associated with the event.  Examples:
      * * In a File.Create event, the CodeStateSection identifies the file created
@@ -234,14 +239,17 @@ export abstract class EventLoggerBase {
      * @param eventInitiator - EventInitiator: Events are typically performed by either the user, the tool, or the instructor. When known, this column should specify which one instigated the event.
      * Note that user, instructor, and team members can initiate actions either directly or indirectly. A direct action is one the person purposefully makes (like typing or editing a program with mouse clicks); an indirect action is one that is caused by a user action, but not done directly by the user (like when a user accepts an autocomplete recommendation and the text is filled in).
      * Users are encouraged to apply the built-in enum values whenever possible, but if a new value is necessary, the coder may define a new custom enum value and document the new value in the README.md.
+     * @param code - Code: The contents of the CodeStateSection **after** the given event has occurred.
      * @param sourceLocation - SourceLocation: A SourceLocation value represents a location or region within a source file, associated with a compiler diagnostic, static analysis warning, or other message about program source. It can also describe the location of an edit in source code during File.Edit events. Note that due to the large number of ways file contents could change as a result of a File.Edit event, the SourceLocation value associated with a File.Edit event (if any) should be considered to be a “hint” regarding the location of the change(s) represented by the event. The true change corresponding to a File.Edit event is indicated by the changes to the event's CodeState relative to the previous CodeState.
-     * @param insertedText - InsertedText: The text inserted by this File.Edit event, if any.
-     * @param deletedText - DeletedText: The text deleted by this File.Delete event, if any.
+     * @param insertText - InsertText: The text inserted by this File.Edit event, if any.
+     * @param deleteText - DeleteText: The text deleted by this File.Delete event, if any.
+     * @param deleteLength - DeleteLength: The length of the text deleted by this File.Delete event, if any. Can be used in place of DeleteText.
+     * @param parentEventID - ParentEventID: Certain events are hierarchical, where multiple child events might be associated with a single parent event. In these cases, the parent event should be referenced in this column by its EventID value.
      * @returns void
      */
-    public logFileEdit(codeStateSection: string, editType: PS2.EditType, eventInitiator?: PS2.EventInitiator, sourceLocation?: string, insertedText?: string, deletedText?: string) {
-        this.logEvent(EventType.FILE_EDIT, {
-            CodeStateSection: codeStateSection, EditType: editType, EventInitiator: eventInitiator, SourceLocation: sourceLocation, InsertedText: insertedText, DeletedText: deletedText
+    public logFileEdit(codeStateSection: string, editType: PS2.EditType, eventInitiator?: PS2.EventInitiator, code?: string, sourceLocation?: string, insertText?: string, deleteText?: string, deleteLength?: number, parentEventID?: string): PS2.MainTableEvent {
+        return this.logEvent(EventType.FILE_EDIT, {
+            CodeStateSection: codeStateSection, EditType: editType, EventInitiator: eventInitiator, Code: code, SourceLocation: sourceLocation, InsertText: insertText, DeleteText: deleteText, DeleteLength: deleteLength, ParentEventID: parentEventID
         });
     }
 
@@ -259,11 +267,12 @@ export abstract class EventLoggerBase {
      * @param eventInitiator - EventInitiator: Events are typically performed by either the user, the tool, or the instructor. When known, this column should specify which one instigated the event.
      * Note that user, instructor, and team members can initiate actions either directly or indirectly. A direct action is one the person purposefully makes (like typing or editing a program with mouse clicks); an indirect action is one that is caused by a user action, but not done directly by the user (like when a user accepts an autocomplete recommendation and the text is filled in).
      * Users are encouraged to apply the built-in enum values whenever possible, but if a new value is necessary, the coder may define a new custom enum value and document the new value in the README.md.
+     * @param code - Code: The contents of the CodeStateSection **after** the given event has occurred.
      * @returns void
      */
-    public logFileFocus(codeStateSection: string, eventInitiator?: PS2.EventInitiator) {
-        this.logEvent(EventType.FILE_FOCUS, {
-            CodeStateSection: codeStateSection, EventInitiator: eventInitiator
+    public logFileFocus(codeStateSection: string, eventInitiator?: PS2.EventInitiator, code?: string): PS2.MainTableEvent {
+        return this.logEvent(EventType.FILE_FOCUS, {
+            CodeStateSection: codeStateSection, EventInitiator: eventInitiator, Code: code
         });
     }
 
@@ -284,8 +293,8 @@ export abstract class EventLoggerBase {
      * Users are encouraged to apply the built-in enum values whenever possible, but if a new value is necessary, the coder may define a new custom enum value and document the new value in the README.md.
      * @returns void
      */
-    public logCompile(codeStateSection: string, compileResult: PS2.CompileResult, eventInitiator?: PS2.EventInitiator) {
-        this.logEvent(EventType.COMPILE, {
+    public logCompile(codeStateSection: string, compileResult: PS2.CompileResult, eventInitiator?: PS2.EventInitiator): PS2.MainTableEvent {
+        return this.logEvent(EventType.COMPILE, {
             CodeStateSection: codeStateSection, CompileResult: compileResult, EventInitiator: eventInitiator
         });
     }
@@ -307,8 +316,8 @@ export abstract class EventLoggerBase {
      * @param sourceLocation - SourceLocation: A SourceLocation value represents a location or region within a source file, associated with a compiler diagnostic, static analysis warning, or other message about program source. It can also describe the location of an edit in source code during File.Edit events. Note that due to the large number of ways file contents could change as a result of a File.Edit event, the SourceLocation value associated with a File.Edit event (if any) should be considered to be a “hint” regarding the location of the change(s) represented by the event. The true change corresponding to a File.Edit event is indicated by the changes to the event's CodeState relative to the previous CodeState.
      * @returns void
      */
-    public logCompileError(parentEventID: string, codeStateSection: string, compileMessageType: string, compileMessageData: string, sourceLocation: string) {
-        this.logEvent(EventType.COMPILE_ERROR, {
+    public logCompileError(parentEventID: string, codeStateSection: string, compileMessageType: string, compileMessageData: string, sourceLocation: string): PS2.MainTableEvent {
+        return this.logEvent(EventType.COMPILE_ERROR, {
             ParentEventID: parentEventID, CodeStateSection: codeStateSection, CompileMessageType: compileMessageType, CompileMessageData: compileMessageData, SourceLocation: sourceLocation
         });
     }
@@ -330,8 +339,8 @@ export abstract class EventLoggerBase {
      * @param sourceLocation - SourceLocation: A SourceLocation value represents a location or region within a source file, associated with a compiler diagnostic, static analysis warning, or other message about program source. It can also describe the location of an edit in source code during File.Edit events. Note that due to the large number of ways file contents could change as a result of a File.Edit event, the SourceLocation value associated with a File.Edit event (if any) should be considered to be a “hint” regarding the location of the change(s) represented by the event. The true change corresponding to a File.Edit event is indicated by the changes to the event's CodeState relative to the previous CodeState.
      * @returns void
      */
-    public logCompileWarning(parentEventID: string, codeStateSection: string, compileMessageType: string, compileMessageData: string, sourceLocation: string) {
-        this.logEvent(EventType.COMPILE_WARNING, {
+    public logCompileWarning(parentEventID: string, codeStateSection: string, compileMessageType: string, compileMessageData: string, sourceLocation: string): PS2.MainTableEvent {
+        return this.logEvent(EventType.COMPILE_WARNING, {
             ParentEventID: parentEventID, CodeStateSection: codeStateSection, CompileMessageType: compileMessageType, CompileMessageData: compileMessageData, SourceLocation: sourceLocation
         });
     }
@@ -354,8 +363,8 @@ export abstract class EventLoggerBase {
      * @param extraCreditScore - ExtraCreditScore: An ExtraCreditScore value ranges between 0.0 and 1.0, and indicates the degree to which a single test (in the case of Run.Test events) or submission (in the case of Submit events) satisfies extra credit criteria. This column should not contain any value for Run.Test and Submit events that have no extra credit criteria.
      * @returns void
      */
-    public logSubmit(executionID?: string, score?: number, extraCreditScore?: number) {
-        this.logEvent(EventType.SUBMIT, {
+    public logSubmit(executionID?: string, score?: number, extraCreditScore?: number): PS2.MainTableEvent {
+        return this.logEvent(EventType.SUBMIT, {
             ExecutionID: executionID, Score: score, ExtraCreditScore: extraCreditScore
         });
     }
@@ -387,8 +396,8 @@ export abstract class EventLoggerBase {
      * @param programErrorOutput - ProgramErrorOutput: Programs often produce error output at the end of a run or test. The ProgramErrorOutput value specifies the URL which records the program's error channel output. The URL will typically refer to an “internal” file within the dataset's Resources directory. Note that ProgramErrorOutput is intended to capture the “error” output channel of the program, i.e., stderr in C, cerr in C++, System.err in Java, etc.
      * @returns void
      */
-    public logRunProgram(executionResult: PS2.ExecutionResult, executionID?: string, score?: number, extraCreditScore?: number, programInput?: string, programOutput?: string, programErrorOutput?: string) {
-        this.logEvent(EventType.RUN_PROGRAM, {
+    public logRunProgram(executionResult: PS2.ExecutionResult, executionID?: string, score?: number, extraCreditScore?: number, programInput?: string, programOutput?: string, programErrorOutput?: string): PS2.MainTableEvent {
+        return this.logEvent(EventType.RUN_PROGRAM, {
             ExecutionResult: executionResult, ExecutionID: executionID, Score: score, ExtraCreditScore: extraCreditScore, ProgramInput: programInput, ProgramOutput: programOutput, ProgramErrorOutput: programErrorOutput
         });
     }
@@ -421,8 +430,8 @@ export abstract class EventLoggerBase {
      * @param programErrorOutput - ProgramErrorOutput: Programs often produce error output at the end of a run or test. The ProgramErrorOutput value specifies the URL which records the program's error channel output. The URL will typically refer to an “internal” file within the dataset's Resources directory. Note that ProgramErrorOutput is intended to capture the “error” output channel of the program, i.e., stderr in C, cerr in C++, System.err in Java, etc.
      * @returns void
      */
-    public logRunTest(executionID: string, testID: string, executionResult: PS2.ExecutionResult, score?: number, extraCreditScore?: number, programInput?: string, programOutput?: string, programErrorOutput?: string) {
-        this.logEvent(EventType.RUN_TEST, {
+    public logRunTest(executionID: string, testID: string, executionResult: PS2.ExecutionResult, score?: number, extraCreditScore?: number, programInput?: string, programOutput?: string, programErrorOutput?: string): PS2.MainTableEvent {
+        return this.logEvent(EventType.RUN_TEST, {
             ExecutionID: executionID, TestID: testID, ExecutionResult: executionResult, Score: score, ExtraCreditScore: extraCreditScore, ProgramInput: programInput, ProgramOutput: programOutput, ProgramErrorOutput: programErrorOutput
         });
     }
@@ -454,8 +463,8 @@ export abstract class EventLoggerBase {
      * @param programErrorOutput - ProgramErrorOutput: Programs often produce error output at the end of a run or test. The ProgramErrorOutput value specifies the URL which records the program's error channel output. The URL will typically refer to an “internal” file within the dataset's Resources directory. Note that ProgramErrorOutput is intended to capture the “error” output channel of the program, i.e., stderr in C, cerr in C++, System.err in Java, etc.
      * @returns void
      */
-    public logDebugProgram(executionResult: PS2.ExecutionResult, executionID?: string, score?: number, extraCreditScore?: number, programInput?: string, programOutput?: string, programErrorOutput?: string) {
-        this.logEvent(EventType.DEBUG_PROGRAM, {
+    public logDebugProgram(executionResult: PS2.ExecutionResult, executionID?: string, score?: number, extraCreditScore?: number, programInput?: string, programOutput?: string, programErrorOutput?: string): PS2.MainTableEvent {
+        return this.logEvent(EventType.DEBUG_PROGRAM, {
             ExecutionResult: executionResult, ExecutionID: executionID, Score: score, ExtraCreditScore: extraCreditScore, ProgramInput: programInput, ProgramOutput: programOutput, ProgramErrorOutput: programErrorOutput
         });
     }
@@ -488,8 +497,8 @@ export abstract class EventLoggerBase {
      * @param programErrorOutput - ProgramErrorOutput: Programs often produce error output at the end of a run or test. The ProgramErrorOutput value specifies the URL which records the program's error channel output. The URL will typically refer to an “internal” file within the dataset's Resources directory. Note that ProgramErrorOutput is intended to capture the “error” output channel of the program, i.e., stderr in C, cerr in C++, System.err in Java, etc.
      * @returns void
      */
-    public logDebugTest(executionID: string, testID: string, executionResult: PS2.ExecutionResult, score?: number, extraCreditScore?: number, programInput?: string, programOutput?: string, programErrorOutput?: string) {
-        this.logEvent(EventType.DEBUG_TEST, {
+    public logDebugTest(executionID: string, testID: string, executionResult: PS2.ExecutionResult, score?: number, extraCreditScore?: number, programInput?: string, programOutput?: string, programErrorOutput?: string): PS2.MainTableEvent {
+        return this.logEvent(EventType.DEBUG_TEST, {
             ExecutionID: executionID, TestID: testID, ExecutionResult: executionResult, Score: score, ExtraCreditScore: extraCreditScore, ProgramInput: programInput, ProgramOutput: programOutput, ProgramErrorOutput: programErrorOutput
         });
     }
@@ -502,8 +511,8 @@ export abstract class EventLoggerBase {
      * @param resourceID - ResourceID: Often students access resources while working on problems. Example resources include API documentation, online textbooks, and demo videos. In a dataset which logs student access to resources, each resource must be assigned a distinct ID. If resources are not changed across terms, their IDs should be reused.
      * @returns void
      */
-    public logResourceView(resourceID: string) {
-        this.logEvent(EventType.RESOURCE_VIEW, {
+    public logResourceView(resourceID: string): PS2.MainTableEvent {
+        return this.logEvent(EventType.RESOURCE_VIEW, {
             ResourceID: resourceID
         });
     }
@@ -522,8 +531,8 @@ export abstract class EventLoggerBase {
      * @param interventionMessage - InterventionMessage: The actual intervention message shown to the student, when applicable. If no message is shown but a visual effect occurs, the effect should be described (possibly using a dataset-specific coding scheme).
      * @returns void
      */
-    public logIntervention(eventInitiator: PS2.EventInitiator, interventionCategory: PS2.InterventionCategory, interventionType: string, interventionMessage: string) {
-        this.logEvent(EventType.INTERVENTION, {
+    public logIntervention(eventInitiator: PS2.EventInitiator, interventionCategory: PS2.InterventionCategory, interventionType: string, interventionMessage: string): PS2.MainTableEvent {
+        return this.logEvent(EventType.INTERVENTION, {
             EventInitiator: eventInitiator, InterventionCategory: interventionCategory, InterventionType: interventionType, InterventionMessage: interventionMessage
         });
     }

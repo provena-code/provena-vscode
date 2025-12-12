@@ -12,5 +12,14 @@
 	"typescript.tsc.autoDetect": "off",
 	"python-envs.defaultEnvManager": "ms-python.python:conda",
 	"python-envs.defaultPackageManager": "ms-python.python:conda",
-	"python-envs.pythonProjects": []
+	"python-envs.pythonProjects": [],
+
+    // Automatically remove unused imports and organize existing ones on save
+    "editor.codeActionsOnSave": {
+        "source.organizeImports": "explicit",
+    },
+    // Automatically remove trailing whitespace when saving a file
+    "files.trimTrailingWhitespace": true,
+    // Optional: Also trim final new lines at the end of the file on save
+    "files.trimFinalNewlines": true
 }

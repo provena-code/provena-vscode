@@ -5,6 +5,7 @@
 import type { EventInitiator } from './EventInitiator';
 export type ColumnsFileCopy = {
     CodeStateSection: string;
+    Code?: (string | null);
     DestinationCodeStateSection: string;
     EventInitiator?: (EventInitiator | null);
 };
