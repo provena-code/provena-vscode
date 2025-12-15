@@ -19,6 +19,7 @@ export enum EventType {
     FILE_COPY = 'File.Copy',
     FILE_EDIT = 'File.Edit',
     FILE_FOCUS = 'File.Focus',
+    FILE_COPY_TEXT = 'File.CopyText',
     COMPILE = 'Compile',
     COMPILE_ERROR = 'Compile.Error',
     COMPILE_WARNING = 'Compile.Warning',

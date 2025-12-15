@@ -1,12 +1,7 @@
-import { CodeStateSectionEntry, DefaultService, EventType, MainTableEvent, OpenAPI } from "../api";
-import { ErrorHandler } from "./ErrorHandler";
+import { EventType, MainTableEvent, OpenAPI } from "../api";
 import { EventLoggerBase } from "./EventLoggerBase";
 import { LogState } from "./LogState";
 import { generateID } from "./Util";
-
-export type AdditionalColumns = Parameters<typeof DefaultService.getAdditionalColumnTypesPlaceholderGet>[0];
-
-export type CodeState = CodeStateSectionEntry[];
 
 export interface IEventHandler {
     onEvent(event: MainTableEvent): void;
@@ -22,9 +17,10 @@ export class EventLogger extends EventLoggerBase {
 
     private eventHandlers: IEventHandler[] = [];
 
-    constructor(toolInstances: string, subjectID?: string) {
+    constructor(sessionID: string, toolInstances: string, subjectID?: string) {
         super();
         this.state = {
+            SessionID: sessionID,
             ToolInstances: toolInstances,
             Order: 0,
             SubjectID: subjectID,
@@ -71,9 +67,9 @@ export class EventLogger extends EventLoggerBase {
             CodeStateID: undefined!,
             Order: this.state.Order,
             ClientTimestamp: timestamp,
+            SessionID: this.state.SessionID,
             ...eventSpecificColumns
         };
-        // console.log("Constructed event:", event);
 
         // Scoped to just this session
         this.state.Order = this.state.Order + 1;
@@ -82,27 +78,16 @@ export class EventLogger extends EventLoggerBase {
             handler.onEvent(event);
         }
 
+        console.log(event.EventType, event);
+
         return event;
     }
 
-    private lastSessionID: string | null = null;
-
-    logSessionStart(sessionID?: string) {
-        if (this.lastSessionID) {
-            ErrorHandler.logError(`Session already started with ID: ${this.lastSessionID}`);
-        }
-        this.lastSessionID = sessionID || generateID();
-
-        return super.logSessionStart(this.lastSessionID);
+    logSessionStart() {
+        return super.logSessionStart(this.state.SessionID);
     }
 
     logSessionEnd() {
-        if (this.lastSessionID === null) {
-            ErrorHandler.logError("Session not started");
-            this.lastSessionID = generateID();
-        }
-        const result = super.logSessionEnd(this.lastSessionID);
-        this.lastSessionID = null;
-        return result;
+        return super.logSessionEnd(this.state.SessionID);
     }
 }

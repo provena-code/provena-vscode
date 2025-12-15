@@ -6,28 +6,44 @@ import { getCodeStateSecion } from './Util';
 
 export class VSCodeLogger {
     private logger!: EventLogger;
-    // private lastCopiedText: string = "";
+
+    private lastCopiedText: string = "";
+    private documentsCheckedForCopy: vscode.Uri[] = [];
 
     init(singletons: Singletons) {
         this.logger = singletons.logger;
     }
 
-    // public async checkForCopyLogEvent() {
-    //     vscode.env.clipboard.readText().then((text) => {
-    //         if (this.lastCopiedText !== text) {
-    //             this.lastCopiedText = text;
-    //             this.logger.logCopy
-    //         }
-    //     }
-    // }
+    public async checkForCopyLogEvent(document: vscode.TextDocument) {
+        const copiedText = await vscode.env.clipboard.readText();
+        if (this.lastCopiedText === copiedText && this.documentsCheckedForCopy.includes(document.uri)) {
+            return;
+        }
+        if (this.lastCopiedText !== copiedText) {
+            this.documentsCheckedForCopy = [];
+            this.lastCopiedText = copiedText;
+        }
+        this.documentsCheckedForCopy.push(document.uri);
+        const index = document.getText().indexOf(copiedText);
+        if (index === -1) {
+            return;
+        }
+        this.logger.logFileCopytext(
+            copiedText,
+            getCodeStateSecion(document.uri),
+            index.toString(),
+        );
+    }
 
     public logFileFocus(document: vscode.TextDocument) {
         this.logger.logFileFocus(getCodeStateSecion(document.uri));
+        this.checkForCopyLogEvent(document);
     }
 
     public async logFileEdit(event: vscode.TextDocumentChangeEvent) {
-        const copiedText = await vscode.env.clipboard.readText();
-        const documentText = event.document.getText();
+        await this.checkForCopyLogEvent(event.document);
+        const copiedText = this.lastCopiedText;
+
         const document = event.document;
         const codeStateSection = getCodeStateSecion(document.uri);
 
@@ -60,9 +76,6 @@ export class VSCodeLogger {
                 }
             }
 
-            const deletedText = documentText.substring(change.rangeOffset, change.rangeOffset + change.rangeLength);
-            console.log(deletedText, change.rangeOffset, change.rangeLength);
-            console.log(documentText);
             parentEventID = this.logger.logFileEdit(
                 codeStateSection,
                 editType,
@@ -79,13 +92,16 @@ export class VSCodeLogger {
 
     public logFileSave(document: vscode.TextDocument) {
         this.logger.logFileSave(getCodeStateSecion(document.uri), document.getText());
+        this.checkForCopyLogEvent(document);
     }
 
     public logFileClose(document: vscode.TextDocument) {
         this.logger.logFileClose(getCodeStateSecion(document.uri));
+        this.checkForCopyLogEvent(document);
     }
 
     public logFileOpen(document: vscode.TextDocument) {
         this.logger.logFileOpen(getCodeStateSecion(document.uri), document.getText());
+        this.checkForCopyLogEvent(document);
     }
 }

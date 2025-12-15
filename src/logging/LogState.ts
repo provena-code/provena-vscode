@@ -2,8 +2,9 @@
 
 export type LogState = {
     SubjectID?: string;
-    ToolInstances: string;
+    readonly ToolInstances: string;
     Order: number;  // Changes frequently
+    readonly SessionID: string;
     // CourseID?: string;
     // CourseSectionID?: string;
     // TermID?: string;

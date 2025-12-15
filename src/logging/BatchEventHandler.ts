@@ -1,5 +1,5 @@
 import { MainTableEvent } from "../api";
-import { CodeState, IFlushableEventHandler } from "./EventLogger";
+import { IFlushableEventHandler } from "./EventLogger";
 
 export interface IBatchEventHandler {
     onEvents(events: MainTableEvent[]): Promise<boolean>;

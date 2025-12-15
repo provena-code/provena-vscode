@@ -3,31 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { AssignmentSubjectsResponseItem } from '../models/AssignmentSubjectsResponseItem';
-import type { Body_addEventsWithCodeStates } from '../models/Body_addEventsWithCodeStates';
-import type { ColumnsCompile } from '../models/ColumnsCompile';
-import type { ColumnsCompileError } from '../models/ColumnsCompileError';
-import type { ColumnsCompileWarning } from '../models/ColumnsCompileWarning';
-import type { ColumnsDebugProgram } from '../models/ColumnsDebugProgram';
-import type { ColumnsDebugTest } from '../models/ColumnsDebugTest';
-import type { ColumnsFileClose } from '../models/ColumnsFileClose';
-import type { ColumnsFileCopy } from '../models/ColumnsFileCopy';
-import type { ColumnsFileCreate } from '../models/ColumnsFileCreate';
-import type { ColumnsFileDelete } from '../models/ColumnsFileDelete';
-import type { ColumnsFileEdit } from '../models/ColumnsFileEdit';
-import type { ColumnsFileFocus } from '../models/ColumnsFileFocus';
-import type { ColumnsFileOpen } from '../models/ColumnsFileOpen';
-import type { ColumnsFileRename } from '../models/ColumnsFileRename';
-import type { ColumnsFileSave } from '../models/ColumnsFileSave';
-import type { ColumnsIntervention } from '../models/ColumnsIntervention';
-import type { ColumnsProjectClose } from '../models/ColumnsProjectClose';
-import type { ColumnsProjectOpen } from '../models/ColumnsProjectOpen';
-import type { ColumnsResourceView } from '../models/ColumnsResourceView';
-import type { ColumnsRunProgram } from '../models/ColumnsRunProgram';
-import type { ColumnsRunTest } from '../models/ColumnsRunTest';
-import type { ColumnsSessionEnd } from '../models/ColumnsSessionEnd';
-import type { ColumnsSessionStart } from '../models/ColumnsSessionStart';
-import type { ColumnsSubmit } from '../models/ColumnsSubmit';
 import type { LogResult } from '../models/LogResult';
+import type { MainTableEvent } from '../models/MainTableEvent';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
@@ -42,43 +19,12 @@ export class DefaultService {
      * @returns LogResult Successful Response
      * @throws ApiError
      */
-    public static addEventsWithCodeStates(
-        requestBody: Body_addEventsWithCodeStates,
+    public static addEvents(
+        requestBody: Array<MainTableEvent>,
     ): CancelablePromise<LogResult> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/events_with_code_states',
-            body: requestBody,
-            mediaType: 'application/json',
-            errors: {
-                422: `Validation Error`,
-            },
-        });
-    }
-    /**
-     * Generate Api Helper
-     * @returns string Successful Response
-     * @throws ApiError
-     */
-    public static generateApiHelper(): CancelablePromise<string> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/generate_api_helper',
-        });
-    }
-    /**
-     * Get Additional Column Types
-     * Placeholder endpoint to get the additional column types.
-     * @param requestBody
-     * @returns any Successful Response
-     * @throws ApiError
-     */
-    public static getAdditionalColumnTypesPlaceholderGet(
-        requestBody: (ColumnsSessionStart | ColumnsSessionEnd | ColumnsProjectOpen | ColumnsProjectClose | ColumnsFileCreate | ColumnsFileDelete | ColumnsFileOpen | ColumnsFileClose | ColumnsFileSave | ColumnsFileRename | ColumnsFileCopy | ColumnsFileEdit | ColumnsFileFocus | ColumnsCompile | ColumnsCompileError | ColumnsCompileWarning | ColumnsSubmit | ColumnsRunProgram | ColumnsRunTest | ColumnsDebugProgram | ColumnsDebugTest | ColumnsResourceView | ColumnsIntervention),
-    ): CancelablePromise<any> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/placeholder',
+            url: '/events',
             body: requestBody,
             mediaType: 'application/json',
             errors: {
@@ -180,6 +126,27 @@ export class DefaultService {
                 'subject_id': subjectId,
                 'assignment_id': assignmentId,
                 'codestate_section': codestateSection,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * Get Last Synced Log Index
+     * Get the last synced log index for a given session from the database.
+     * @param sessionId
+     * @returns number Successful Response
+     * @throws ApiError
+     */
+    public static getLastSyncedOrder(
+        sessionId: string,
+    ): CancelablePromise<number> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/read/sessions/{session_id}/last_synced_order',
+            path: {
+                'session_id': sessionId,
             },
             errors: {
                 422: `Validation Error`,

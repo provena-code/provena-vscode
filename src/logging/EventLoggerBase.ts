@@ -278,6 +278,29 @@ export abstract class EventLoggerBase {
 
 
     /**
+     * Logs a "File.CopyText" event to the server.
+     * Indicates that the user has copied the CopiedText from an open code document to the clipboard. Optionally includes the document (CodeStateSection) and file location (SourceLocation) from which the text was copied.
+    Note that for privacy reasons this even should **not** fire when a user copies text outside of the code editor, as this could contain personal information. However, if extern text is pasted into an editor, this can be indicated by setting EditType attribute to Paste.
+
+     *
+     * @param copiedText - CopiedText: The text copied to the clipboard from a code editor.
+     * @param codeStateSection - CodeStateSection: A CodeStateSection value names a single file or resource within a CodeState which is specifically associated with the event.  Examples:
+     * * In a File.Create event, the CodeStateSection identifies the file created
+     * * In a Compile.Error event, the CodeStateSection identifies the source file in which the compilation error occurs
+     * Note that for events where there is both a "source" file/resource and a "destination" file/resource, the CodeStateSection value indicates the "source".  For example, for File.Copy and File.Rename events, the CodeStateSection names the "original" file.  (Note that in the case of File.Rename events, the CodeStateSection value identifies a file or resource in the previous CodeState.)
+     * Note that a CodeStateSection may only refer to a single file.  Cases where multiple resources are accessed or modified at the same time (such as using "Save All" to save all files) should be represented as multiple events, each with its own distinct CodeStateSection.
+     * Also note that CodeStateSections should not be used for CodeStates in the Table format, as all table data is contained in the same file.
+     * @param sourceLocation - SourceLocation: A SourceLocation value represents a location or region within a source file, associated with a compiler diagnostic, static analysis warning, or other message about program source. It can also describe the location of an edit in source code during File.Edit events. Note that due to the large number of ways file contents could change as a result of a File.Edit event, the SourceLocation value associated with a File.Edit event (if any) should be considered to be a “hint” regarding the location of the change(s) represented by the event. The true change corresponding to a File.Edit event is indicated by the changes to the event's CodeState relative to the previous CodeState.
+     * @returns void
+     */
+    public logFileCopytext(copiedText: string, codeStateSection?: string, sourceLocation?: string): PS2.MainTableEvent {
+        return this.logEvent(EventType.FILE_COPY_TEXT, {
+            CopiedText: copiedText, CodeStateSection: codeStateSection, SourceLocation: sourceLocation
+        });
+    }
+
+
+    /**
      * Logs a "Compile" event to the server.
      * Indicates an attempt to compile all or part of the code.
      *

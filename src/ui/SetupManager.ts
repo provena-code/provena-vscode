@@ -46,6 +46,11 @@ export class SetupManager {
             }
         }));
 
+        disposables.push(vscode.workspace.onDidChangeWorkspaceFolders(event => {
+            // Need to reconfigure and verify
+            // Does this ever trigger without restarting the plugin?
+        }));
+
         authManager.getCachedIdentity(true).then(identity => {
             console.log(identity);
             logger.updateState({ SubjectID: identity?.email });

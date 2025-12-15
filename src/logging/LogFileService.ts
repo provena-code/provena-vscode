@@ -4,15 +4,14 @@ import { MainTableEvent } from '../api';
 import { BatchEventHandler, IBatchEventHandler } from './BatchEventHandler';
 import { EventLogger } from './EventLogger';
 import { JSONLLogger } from './JSONLogger';
-import { generateID } from './Util';
 
 const logsDirName = 'logs';
-const extension = '.jsonl';
+const logFileExtension = '.jsonl';
 const logFilePrefix = 'log';
-const cursorSuffix = '.cursor';
+const cursorFileSuffix = '.cursor';
 
 function isLogFile(fileName: string): boolean {
-    return fileName.startsWith(logFilePrefix) && fileName.endsWith(extension);
+    return fileName.startsWith(logFilePrefix) && fileName.endsWith(logFileExtension);
 }
 
 export enum SyncResult {
@@ -22,7 +21,7 @@ export enum SyncResult {
 }
 
 export interface ILogSyncer {
-    getLastSyncedLogLine(): Promise<number>;
+    getLastSyncedLogLine(sessionID: string): Promise<number>;
     pushLogLines(lines: object[]): Promise<SyncResult>;
 }
 
@@ -31,9 +30,9 @@ export class LogFileService implements IBatchEventHandler {
     private isSyncing: boolean = false;
     private nSyncedLogs: number = 0;
     public readonly localLogger: JSONLLogger;
-    public readonly sessionID = generateID();
 
     constructor(
+        public readonly sessionID: string,
         public readonly syncer: ILogSyncer,
         rootDir: string
     ) {
@@ -61,7 +60,7 @@ export class LogFileService implements IBatchEventHandler {
 
     private getNewLogFilePath(): string {
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        return `${this.rootDir}/${logFilePrefix}_${timestamp}_${this.sessionID}${extension}`;
+        return `${this.rootDir}/${logFilePrefix}_${timestamp}_${this.sessionID}${logFileExtension}`;
     }
 
     /**
@@ -86,7 +85,7 @@ export class LogFileService implements IBatchEventHandler {
     }
 
     getCursorPath(logPath: string): string {
-        return logPath + cursorSuffix;
+        return logPath + cursorFileSuffix;
     }
 
     async getCachedLastSyncedLogLine(logPath: string): Promise<number> {
@@ -114,6 +113,12 @@ export class LogFileService implements IBatchEventHandler {
             if (file.includes(this.sessionID)) {
                 continue;
             }
+            const parts = file.replace(logFileExtension, '').split('_');
+            if (parts.length < 3) {
+                console.log(`Skipping malformed log file: ${file}`);
+                continue;
+            }
+            const sessionID = parts[2];
             const filePath = path.join(this.rootDir, file);
             const content = await fs.readFile(filePath, 'utf-8');
             const lines = content.split('\n').filter(line => line.trim() !== '');
@@ -133,7 +138,7 @@ export class LogFileService implements IBatchEventHandler {
 
             // Check the server even if we have a cached value, since
             // it could have changed we cached it
-            lastSyncedLine = await this.syncer.getLastSyncedLogLine();
+            lastSyncedLine = await this.syncer.getLastSyncedLogLine(sessionID);
             // and cache it
             await this.setCachedLastSyncedLogLine(filePath, lastSyncedLine);
             console.log(`Syncing log file ${filePath} from line ${lastSyncedLine + 1}`);

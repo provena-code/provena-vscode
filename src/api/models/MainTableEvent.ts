@@ -11,7 +11,7 @@ import type { InterventionCategory } from './InterventionCategory';
 export type MainTableEvent = {
     EventType: EventType;
     EventID: string;
-    CodeStateID: string;
+    CodeStateID?: (string | null);
     SubjectID: string;
     ToolInstances: string;
     Order?: (number | null);
@@ -26,11 +26,12 @@ export type MainTableEvent = {
     ExperimentalCondition?: (string | null);
     LoggingErrorID?: (string | null);
     ParentEventID?: (string | null);
-    SessionID?: (string | null);
+    SessionID: string;
     ProjectID?: (string | null);
     ResourceID?: (string | null);
     CodeStateSection?: (string | null);
     Code?: (string | null);
+    CopiedText?: (string | null);
     DestinationCodeStateSection?: (string | null);
     EventInitiator?: (EventInitiator | null);
     EditType?: (EditType | null);
@@ -53,3 +54,4 @@ export type MainTableEvent = {
     DeleteText?: (string | null);
     DeleteLength?: (number | null);
 };
+

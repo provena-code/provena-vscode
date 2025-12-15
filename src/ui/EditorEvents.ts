@@ -47,6 +47,10 @@ export function createEditorEvents(singletons: Singletons) {
 		}
 	}));
 
+	disposables.push(vscode.window.onDidChangeTextEditorSelection(event => {
+		vscodeLogger.checkForCopyLogEvent(event.textEditor.document);
+	}));
+
 	let lastCopiedText: string | null = null;
 
 	disposables.push(vscode.workspace.onDidChangeTextDocument(async event => {
@@ -90,6 +94,12 @@ export function createEditorEvents(singletons: Singletons) {
     disposables.push(vscode.workspace.onDidSaveTextDocument(document => {
         vscodeLogger.logFileSave(document);
     }));
+
+	disposables.push(vscode.tasks.onDidStartTask(event => {
+		console.log(`Task started: ${event.execution.task.name}`);
+	}));
+
+
 
     // TODO: Many more events
 

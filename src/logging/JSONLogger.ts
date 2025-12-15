@@ -1,8 +1,8 @@
-import { CodeState, EventLogger } from "./EventLogger";
-import { BatchEventHandler, IBatchEventHandler } from "./BatchEventHandler";
 import * as fs from 'fs';
 import * as path from 'path';
 import { MainTableEvent } from "../api";
+import { BatchEventHandler, IBatchEventHandler } from "./BatchEventHandler";
+import { EventLogger } from "./EventLogger";
 
 export class JSONLLogger implements IBatchEventHandler {
 

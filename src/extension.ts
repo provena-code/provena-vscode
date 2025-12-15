@@ -6,8 +6,9 @@ import { AuthManager } from './auth/AuthManager';
 import { CONTEXT_IS_LOGGED_IN } from './constants';
 import { EditDisplay } from './display/EditDisplay';
 import { EventLogger } from './logging/EventLogger';
-import { LogFileService, SyncResult } from './logging/LogFileService';
-import { getStorageRootPath } from './logging/Util';
+import { LogFileService } from './logging/LogFileService';
+import { ServerLogger } from './logging/ServerLogger';
+import { generateID, getStorageRootPath } from './logging/Util';
 import { VSCodeLogger } from './logging/VSCodeLogger';
 import { FileDataMap } from './recorder/FileDataMap';
 import { Singletons } from './Singletons';
@@ -24,8 +25,9 @@ export function activate(context: vscode.ExtensionContext) {
 	EventLogger.configure('http://127.0.0.1:8000/');
 
 	// Might be a good idea to force 0-args constructors
+	const sessionID = generateID();
 	const toolInstance = `${publisher}.${name}-${version}`;
-	const logger = loggerToClose = new EventLogger(toolInstance);
+	const logger = loggerToClose = new EventLogger(sessionID, toolInstance);
 	const vscodeLogger = new VSCodeLogger();
 	const authManager = new AuthManager(context);
 	const editDisplay = new EditDisplay(context);
@@ -45,14 +47,7 @@ export function activate(context: vscode.ExtensionContext) {
 	const storageRootPath = getStorageRootPath(context);
 	let logFileService: LogFileService | null = null;
 	if (storageRootPath) {
-		// TODO: Create actual server sync
-		logFileService = new LogFileService({
-			getLastSyncedLogLine: async () => -1,
-			pushLogLines: async (lines: object[]) => {
-				console.log("Pushing log lines to server:", lines.length);
-				return SyncResult.Unavailable;
-			},
-		}, storageRootPath);
+		logFileService = new LogFileService(sessionID, new ServerLogger(), storageRootPath);
 		logFileService.pushUnsyncedLogs();
 		logFileService.registerWithLogger(logger);
 	}
