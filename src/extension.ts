@@ -13,7 +13,7 @@ import { VSCodeLogger } from './logging/VSCodeLogger';
 import { FileDataMap } from './recorder/FileDataMap';
 import { Singletons } from './Singletons';
 import { createEditorEvents } from './ui/EditorEvents';
-import { isProvenaActive, SetupManager } from './ui/SetupManager';
+import { isProvenaDisabled, SetupManager } from './ui/SetupManager';
 import { StatusBarManager } from './ui/StatusBarManager';
 
 let loggerToClose: EventLogger | null = null;
@@ -29,7 +29,7 @@ export function activate(context: vscode.ExtensionContext) {
 	const sessionID = generateID();
 	const toolInstance = `${publisher}.${name}-${version}`;
 	const logger = loggerToClose = new EventLogger(sessionID, toolInstance);
-	logger.setActive(isProvenaActive());
+	logger.setActive(!isProvenaDisabled());
 	const vscodeLogger = new VSCodeLogger();
 	const authManager = new AuthManager(context);
 	const editDisplay = new EditDisplay(context);
