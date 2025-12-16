@@ -74,6 +74,10 @@
     ],
     "commands": [
       {
+        "command": "provena.setup",
+        "title": "Set up Provena"
+      },
+      {
         "command": "provena.login",
         "title": "Sign into Provena with Google"
       },
@@ -93,6 +97,15 @@
         "command": "provena.openAuthorshipView",
         "title": "Open Provena Authorship View",
         "icon": "$(open-editors-view-icon)"
+      },
+      {
+        "command": "provena.showSyncStatus",
+        "title": "Show Provena Sync Status",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "provena.sync",
+        "title": "Sync Provena"
       }
     ],
     "configuration": {

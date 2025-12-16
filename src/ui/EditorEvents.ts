@@ -99,7 +99,23 @@ export function createEditorEvents(singletons: Singletons) {
 		console.log(`Task started: ${event.execution.task.name}`);
 	}));
 
+	// Detect when a command actually starts running in the terminal
+    disposables.push(vscode.window.onDidStartTerminalShellExecution(event => {
+        const commandLine = event.execution.commandLine.value;
+        const terminalName = event.terminal.name;
 
+        // Filter out empty lines or noise
+        if (!commandLine) {
+			return;
+		}
+
+        console.log(`User ran command: ${commandLine} in terminal: ${terminalName}`);
+
+        // Example heuristic: Check if it looks like a run command
+        if (commandLine.startsWith('npm run') || commandLine.includes('python')) {
+            vscode.window.showInformationMessage(`Detected run command: ${commandLine}`);
+        }
+    }));
 
     // TODO: Many more events
 

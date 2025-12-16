@@ -14,6 +14,7 @@ import { FileDataMap } from './recorder/FileDataMap';
 import { Singletons } from './Singletons';
 import { createEditorEvents } from './ui/EditorEvents';
 import { SetupManager } from './ui/SetupManager';
+import { StatusBarManager } from './ui/StatusBarManager';
 
 let loggerToClose: EventLogger | null = null;
 
@@ -33,6 +34,7 @@ export function activate(context: vscode.ExtensionContext) {
 	const editDisplay = new EditDisplay(context);
 	const setupManager = new SetupManager();
 	const fileDataMap = new FileDataMap(true);
+	const statusBarManager = new StatusBarManager();
 
 	const singletons: Singletons = {
 		context,
@@ -47,8 +49,13 @@ export function activate(context: vscode.ExtensionContext) {
 	const storageRootPath = getStorageRootPath(context);
 	let logFileService: LogFileService | null = null;
 	if (storageRootPath) {
-		logFileService = new LogFileService(sessionID, new ServerLogger(), storageRootPath);
-		logFileService.pushUnsyncedLogs();
+		logFileService = new LogFileService(
+			sessionID,
+			new ServerLogger(),
+			statusBarManager,
+			storageRootPath
+		);
+		logFileService.init();
 		logFileService.registerWithLogger(logger);
 	}
 

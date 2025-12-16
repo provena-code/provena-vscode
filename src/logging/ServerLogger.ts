@@ -1,5 +1,5 @@
 import { ApiError, DefaultService, MainTableEvent } from "../api";
-import { ILogSyncer, SyncResult } from "./LogFileService";
+import { ILogSyncer, SyncResult, SyncResultType } from "./LogFileService";
 
 export class ServerLogger implements ILogSyncer {
     async getLastSyncedLogLine(sessionID: string): Promise<number> {
@@ -16,19 +16,25 @@ export class ServerLogger implements ILogSyncer {
         try {
             const result = await DefaultService.addEvents(lines as MainTableEvent[]);
             if (result.success) {
-                return SyncResult.Success;
+                return { result: SyncResultType.Success };
             } else {
                 console.log(`Failed to push log lines`, result);
-                return SyncResult.Rejected;
+                const error_messages = (result.errors ?? []).join("\n");
+                const warning_messages = (result.warnings ?? []).join("\n");
+                const all_errors = error_messages + warning_messages;
+                return { result: SyncResultType.Rejected, error: all_errors };
             }
         } catch (error) {
             if (error instanceof ApiError && error.status === 422) {
                 console.log(`Malformatted log lines`, error);
-                return SyncResult.Rejected;
+                return { result: SyncResultType.Rejected, error: error.statusText };
             }
 
+            // Could be any server error other than malformatted data
+            // but most likely the server is down. Regardless, suggests we
+            // should resend.
             console.error(`Error pushing log lines`, error);
-            return SyncResult.Unavailable;
+            return { result: SyncResultType.Unavailable };
         }
     }
 }

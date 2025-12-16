@@ -1,6 +1,9 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import * as vscode from 'vscode';
 import { MainTableEvent } from '../api';
+import { COMMAND_SYNC } from '../constants';
+import { StatusBarManager, StatusBarState } from '../ui/StatusBarManager';
 import { BatchEventHandler, IBatchEventHandler } from './BatchEventHandler';
 import { EventLogger } from './EventLogger';
 import { JSONLLogger } from './JSONLogger';
@@ -14,10 +17,45 @@ function isLogFile(fileName: string): boolean {
     return fileName.startsWith(logFilePrefix) && fileName.endsWith(logFileExtension);
 }
 
-export enum SyncResult {
+export enum SyncResultType {
     Success = 'success',
     Unavailable = 'unavailable',
     Rejected = 'rejected'
+}
+
+export type SyncResult = {
+    result: SyncResultType,
+    error?: string
+};
+
+class SessionSyncStatus {
+    errors: string[] = [];
+    lastSyncedTime?: Date;
+    totalLogs = 0;
+    syncedLogs = 0;
+    serverUnavailable = false;
+
+    get isSynced(): boolean {
+        // If we haven't tried syncing yet, then we're not synced
+        return this.totalLogs > 0 && this.syncedLogs === this.totalLogs;
+    }
+}
+
+class SyncStatus {
+    thisSession = new SessionSyncStatus();
+    priorSessions = new SessionSyncStatus();
+
+    get isSynced(): boolean {
+        return this.thisSession.isSynced && this.priorSessions.isSynced;
+    }
+
+    get serverUnavailable(): boolean {
+        return this.thisSession.serverUnavailable || this.priorSessions.serverUnavailable;
+    }
+
+    get errors(): string[] {
+        return [...this.thisSession.errors, ...this.priorSessions.errors];
+    }
 }
 
 export interface ILogSyncer {
@@ -29,11 +67,14 @@ export class LogFileService implements IBatchEventHandler {
     private readonly rootDir: string;
     private isSyncing: boolean = false;
     private nSyncedLogs: number = 0;
+    private batchHandler?: BatchEventHandler;
     public readonly localLogger: JSONLLogger;
+    private readonly status = new SyncStatus();
 
     constructor(
         public readonly sessionID: string,
         public readonly syncer: ILogSyncer,
+        private readonly statusBarManager: StatusBarManager,
         rootDir: string
     ) {
         this.rootDir = path.join(rootDir, logsDirName);
@@ -41,20 +82,64 @@ export class LogFileService implements IBatchEventHandler {
         this.localLogger = new JSONLLogger(this.getNewLogFilePath());
     }
 
+    public init() {
+        vscode.commands.registerCommand(COMMAND_SYNC, async () => {
+            // Only use the status to update the UI
+            // Let the sync process itself skip redundant updates
+            if (!this.status.isSynced) {
+                this.statusBarManager.setState(StatusBarState.SYNCING);
+            }
+            await Promise.all([
+                this.pushUnsyncedLogs(),
+                this.batchHandler?.flush()
+            ]);
+            this.updateStatusForSyncComplete(true);
+        });
+        this.pushUnsyncedLogs();
+    }
+
     async onEvents(events: MainTableEvent[]): Promise<boolean> {
+        this.statusBarManager.setState(StatusBarState.SYNCING);
+        console.log('----starting sync-----');
         const syncResult = await this.syncer.pushLogLines(events);
-        if (syncResult === SyncResult.Success) {
-            this.nSyncedLogs += events.length;
+        const sessionStatus = this.status.thisSession;
+        sessionStatus.serverUnavailable = syncResult.result === SyncResultType.Unavailable;
+        if (syncResult.result === SyncResultType.Success) {
             await this.setCachedLastSyncedLogLine(this.localLogger.logPath, this.nSyncedLogs);
+            this.nSyncedLogs += events.length;
+            sessionStatus.lastSyncedTime = new Date();
+            sessionStatus.syncedLogs = sessionStatus.totalLogs = this.nSyncedLogs;
+            this.updateStatusForSyncComplete();
+
+            // If we just successfully synced this session, and
+            // there are still unsynced logs from previous sessions,
+            // we should also try to sync those logs
+            if (!this.status.priorSessions.isSynced) {
+                // Doesn't need to block
+                this.pushUnsyncedLogs();
+            }
             return true;
         }
         // TODO: Decide how to handle Rejected logs
+        sessionStatus.totalLogs = this.nSyncedLogs + events.length;
+        sessionStatus.errors.push(`Failed to sync this session: ${syncResult.error}`);
+        this.updateStatusForSyncComplete();
         return false;
     }
 
+    private updateStatusForSyncComplete(forceShowErrors: boolean = false): void {
+        if (this.status.isSynced) {
+            this.statusBarManager.setState(StatusBarState.SYNCED);
+        } else if (!forceShowErrors && this.status.serverUnavailable) {
+            this.statusBarManager.setState(StatusBarState.UNABLE_TO_SYNC);
+        } else {
+            this.statusBarManager.setState(StatusBarState.ERROR);
+        }
+    }
+
     public registerWithLogger(logger: EventLogger) {
-        const batchHandler = new BatchEventHandler(this, 50, 3000);
-        logger.registerEventHandler(batchHandler);
+        this.batchHandler = new BatchEventHandler(this, 50, 3000);
+        logger.registerEventHandler(this.batchHandler);
         this.localLogger.register(logger);
     }
 
@@ -63,32 +148,11 @@ export class LogFileService implements IBatchEventHandler {
         return `${this.rootDir}/${logFilePrefix}_${timestamp}_${this.sessionID}${logFileExtension}`;
     }
 
-    /**
-     * Retrieve all log entries from all log files in the root directory.
-     */
-    async getAllLogs(): Promise<object[]> {
-        const logEntries: object[] = [];
-        const files = (await fs.readdir(this.rootDir)).filter(isLogFile).sort();
-        for (const file of files) {
-            const filePath = path.join(this.rootDir, file);
-            const content = await fs.readFile(filePath, 'utf-8');
-            const lines = content.split('\n').filter(line => line.trim() !== '');
-            for (const line of lines) {
-                try {
-                    logEntries.push(JSON.parse(line));
-                } catch {
-                    // Ignore lines that are not valid JSON
-                }
-            }
-        }
-        return logEntries;
-    }
-
-    getCursorPath(logPath: string): string {
+    private getCursorPath(logPath: string): string {
         return logPath + cursorFileSuffix;
     }
 
-    async getCachedLastSyncedLogLine(logPath: string): Promise<number> {
+    private async getCachedLastSyncedLogLine(logPath: string): Promise<number> {
         const cursorPath = this.getCursorPath(logPath);
         try {
             const content = await fs.readFile(cursorPath, 'utf-8');
@@ -98,16 +162,18 @@ export class LogFileService implements IBatchEventHandler {
         }
     }
 
-    async setCachedLastSyncedLogLine(logPath: string, lineNumber: number): Promise<void> {
+    private async setCachedLastSyncedLogLine(logPath: string, lineNumber: number): Promise<void> {
         const cursorPath = this.getCursorPath(logPath);
         await fs.writeFile(cursorPath, lineNumber.toString(), 'utf-8');
     }
 
-    async pushUnsyncedLogs(): Promise<boolean> {
+    public async pushUnsyncedLogs(): Promise<boolean> {
         if (this.isSyncing) {
             return false;
         }
         this.isSyncing = true;
+        this.statusBarManager.setState(StatusBarState.SYNCING);
+        const status = this.status.priorSessions = new SessionSyncStatus();
         const files = (await fs.readdir(this.rootDir)).filter(isLogFile).sort();
         for (const file of files) {
             if (file.includes(this.sessionID)) {
@@ -153,13 +219,21 @@ export class LogFileService implements IBatchEventHandler {
                     }
                 }).filter(obj => obj !== null) as object[];
                 const syncResult = await this.syncer.pushLogLines(logObjects);
-                if (syncResult === SyncResult.Success) {
+
+                status.totalLogs += lines.length;
+                status.syncedLogs += lastSyncedLine + 1;
+                if (syncResult.result === SyncResultType.Success) {
                     await this.setCachedLastSyncedLogLine(filePath, lastSyncedLine + unsyncedLines.length);
-                } else if (syncResult === SyncResult.Unavailable) {
+                    status.syncedLogs += unsyncedLines.length;
+                }
+                if (syncResult.result === SyncResultType.Unavailable) {
                     this.isSyncing = false;
+                    status.serverUnavailable = true;
+                    status.errors.push(`Could not connect to the server: ${syncResult.error}`);
                     console.log(`Unable to sync right now; stopping further sync attempts.`);
                     return false;
-                } else if (syncResult === SyncResult.Rejected) {
+                } else if (syncResult.result === SyncResultType.Rejected) {
+                    status.errors.push(`Server rejected log for session ${sessionID}: ${syncResult.error}`);
                     console.log(`Server rejected log ${filePath}`, logObjects);
                     // TODO: Decide how to handle Rejected logs
                     // If the server is battle-tested, then sure, we should ignore them
@@ -171,6 +245,7 @@ export class LogFileService implements IBatchEventHandler {
             }
         }
         this.isSyncing = false;
+        this.updateStatusForSyncComplete();
         return true;
     }
 }

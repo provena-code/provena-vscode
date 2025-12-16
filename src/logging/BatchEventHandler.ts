@@ -33,8 +33,8 @@ export class BatchEventHandler implements IFlushableEventHandler {
         }
     }
 
-    flush(): void {
-        if (this.eventQueue.length === 0) {
+    async flush(): Promise<void> {
+        if (this.eventQueue.length === 0 || this.isFlushing) {
             return;
         }
         this.isFlushing = true;
@@ -44,12 +44,14 @@ export class BatchEventHandler implements IFlushableEventHandler {
             this.timer = null;
         }
 
-        this.batchEventHandler.onEvents(this.eventQueue).then(success => {
-            this.isFlushing = false;
+        try {
+            const success = await this.batchEventHandler.onEvents(this.eventQueue);
             if (success) {
                 // Only clear the queue if the flush was successful
                 this.eventQueue = [];
             }
-        });
+        } finally {
+            this.isFlushing = false;
+        }
     }
 }

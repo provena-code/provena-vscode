@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { AuthManager } from "../auth/AuthManager";
-import { CONFIG_PROVENA_ACTIVE } from "../constants";
+import { COMMAND_LOGIN, COMMAND_SET_ACTIVE, COMMAND_SET_INACTIVE, COMMAND_SETUP, CONFIG_PROVENA_ACTIVE } from "../constants";
 import { getStorageRootPath } from "../logging/Util";
 import { Singletons } from "../Singletons";
 import { loggingHash } from "../util";
@@ -13,6 +13,9 @@ export class SetupManager {
 
     }
 
+    // TODO: Set provena status when setting up UI
+    // and enable logging after its set up...
+    // and disable it beforehand ://
     init(singletons: Singletons) {
         this.authManager = singletons.authManager;
 
@@ -20,16 +23,27 @@ export class SetupManager {
 
         const disposables: vscode.Disposable[] = [];
 
-        disposables.push(vscode.commands.registerCommand('provena.login', () => {
+        disposables.push(vscode.commands.registerCommand(COMMAND_SETUP, () => {
+            vscode.commands.executeCommand(
+                'workbench.action.openWalkthrough',
+                {
+                    category: 'hintslab.provena#setup',
+                    step: '*',
+                    openToSide: true
+                }
+            );
+        }));
+
+        disposables.push(vscode.commands.registerCommand(COMMAND_LOGIN, () => {
             authManager.ensureLoggedIn();
         }));
 
-        disposables.push(vscode.commands.registerCommand('provena.setActive', () => {
+        disposables.push(vscode.commands.registerCommand(COMMAND_SET_ACTIVE, () => {
             vscode.window.showInformationMessage("Provena is now active for this workspace.");
             vscode.workspace.getConfiguration().update(CONFIG_PROVENA_ACTIVE, true, vscode.ConfigurationTarget.Workspace);
         }));
 
-        disposables.push(vscode.commands.registerCommand('provena.setInactive', () => {
+        disposables.push(vscode.commands.registerCommand(COMMAND_SET_INACTIVE, () => {
             vscode.window.showInformationMessage("Provena is disabled. To change this setting, ask your instructor.");
             vscode.workspace.getConfiguration().update(CONFIG_PROVENA_ACTIVE, false, vscode.ConfigurationTarget.Workspace);
         }));
@@ -101,14 +115,6 @@ export class SetupManager {
         if (this.isProvenaConfigured(isLoggedIn)) {
             return;
         }
-
-        vscode.commands.executeCommand(
-            'workbench.action.openWalkthrough',
-            {
-                category: 'hintslab.provena#setup',
-                step: '*',
-                openToSide: true
-            }
-        );
+        vscode.commands.executeCommand(COMMAND_SETUP);
     }
 }
