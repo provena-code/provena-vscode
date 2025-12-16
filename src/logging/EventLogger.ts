@@ -17,6 +17,8 @@ export class EventLogger extends EventLoggerBase {
 
     private eventHandlers: IEventHandler[] = [];
 
+    private active = true;
+
     constructor(sessionID: string, toolInstances: string, subjectID?: string) {
         super();
         this.state = {
@@ -25,6 +27,13 @@ export class EventLogger extends EventLoggerBase {
             Order: 0,
             SubjectID: subjectID,
         };
+    }
+
+    public setActive(active: boolean) {
+        if (this.active && !active) {
+            this.flush();
+        }
+        this.active = active;
     }
 
     // TODO: Consider authentication, etc., and better understand this
@@ -70,6 +79,11 @@ export class EventLogger extends EventLoggerBase {
             SessionID: this.state.SessionID,
             ...eventSpecificColumns
         };
+
+        // Return before modifying state if not active
+        if (!this.active) {
+            return event;
+        }
 
         // Scoped to just this session
         this.state.Order = this.state.Order + 1;

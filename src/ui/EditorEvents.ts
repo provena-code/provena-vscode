@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { Singletons } from "../Singletons";
+import { isProvenaActive } from './SetupManager';
 
 export function createEditorEvents(singletons: Singletons) {
 
@@ -42,7 +43,7 @@ export function createEditorEvents(singletons: Singletons) {
 	}
 
 	disposables.push(vscode.window.onDidChangeActiveTextEditor(editor => {
-		if (setupManager.isProvenaActive() && editor) {
+		if (isProvenaActive() && editor) {
 			switchActiveEditor(editor.document);
 		}
 	}));
@@ -54,7 +55,8 @@ export function createEditorEvents(singletons: Singletons) {
 	let lastCopiedText: string | null = null;
 
 	disposables.push(vscode.workspace.onDidChangeTextDocument(async event => {
-		if (!setupManager.isProvenaActive()) {
+		// TODO: Should be redundant soon, but should test
+		if (!isProvenaActive()) {
 			return;
 		}
 
@@ -80,7 +82,7 @@ export function createEditorEvents(singletons: Singletons) {
 		editDisplay.update(editList);
 		// console.log(`Current edits: ${editList.toString()}`);
 
-		setupManager.showWarningIfNotConfigured(authManager.isLoggedIn);
+		setupManager.showWarningIfNotConfigured();
 	}));
 
     disposables.push(vscode.workspace.onDidOpenTextDocument(document => {

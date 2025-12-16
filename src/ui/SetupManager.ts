@@ -1,13 +1,31 @@
 import * as vscode from 'vscode';
 import { AuthManager } from "../auth/AuthManager";
-import { COMMAND_LOGIN, COMMAND_SET_ACTIVE, COMMAND_SET_INACTIVE, COMMAND_SETUP, CONFIG_PROVENA_ACTIVE } from "../constants";
+import { COMMAND_LOGIN, COMMAND_LOGOUT, COMMAND_SET_ACTIVE, COMMAND_SET_INACTIVE, COMMAND_SETUP, CONFIG_PROVENA_ACTIVE } from "../constants";
 import { getStorageRootPath } from "../logging/Util";
 import { Singletons } from "../Singletons";
 import { loggingHash } from "../util";
+import { StatusBarManager, StatusBarState } from './StatusBarManager';
+
+/**
+ * Returns true if Provena is _explicitly_ active for this workspace, false otherwise.
+ */
+export function isProvenaActive(): boolean {
+    const provenaActive = vscode.workspace.getConfiguration().get(CONFIG_PROVENA_ACTIVE);
+    return provenaActive === true;
+}
+
+/**
+ * Returns true if Provena is _explicitly_ disabled for this workspace, false otherwise.
+ */
+export function isProvenaDisabled(): boolean {
+    const provenaActive = vscode.workspace.getConfiguration().get(CONFIG_PROVENA_ACTIVE);
+    return provenaActive === false;
+}
 
 export class SetupManager {
     lastWarningTime: number | null = null;
     authManager!: AuthManager;
+    statusBarManager!: StatusBarManager;
 
     constructor() {
 
@@ -18,6 +36,7 @@ export class SetupManager {
     // and disable it beforehand ://
     init(singletons: Singletons) {
         this.authManager = singletons.authManager;
+        this.statusBarManager = singletons.statusBarManager;
 
         const { context, editDisplay, authManager, logger } = singletons;
 
@@ -34,8 +53,14 @@ export class SetupManager {
             );
         }));
 
-        disposables.push(vscode.commands.registerCommand(COMMAND_LOGIN, () => {
-            authManager.ensureLoggedIn();
+        disposables.push(vscode.commands.registerCommand(COMMAND_LOGIN, async () => {
+            await authManager.ensureLoggedIn();
+            this.showWarningIfNotConfigured();
+        }));
+
+        disposables.push(vscode.commands.registerCommand(COMMAND_LOGOUT, async () => {
+            await authManager.logout();
+            this.showWarningIfNotConfigured();
         }));
 
         disposables.push(vscode.commands.registerCommand(COMMAND_SET_ACTIVE, () => {
@@ -46,6 +71,14 @@ export class SetupManager {
         disposables.push(vscode.commands.registerCommand(COMMAND_SET_INACTIVE, () => {
             vscode.window.showInformationMessage("Provena is disabled. To change this setting, ask your instructor.");
             vscode.workspace.getConfiguration().update(CONFIG_PROVENA_ACTIVE, false, vscode.ConfigurationTarget.Workspace);
+        }));
+
+        disposables.push(vscode.workspace.onDidChangeConfiguration(event => {
+            if (event.affectsConfiguration(CONFIG_PROVENA_ACTIVE)) {
+                // Still log locally unless explicitly disabled
+                singletons.logger.setActive(!isProvenaDisabled());
+                this.showWarningIfNotConfigured();
+            }
         }));
 
         disposables.push(vscode.commands.registerCommand('provena.openAuthorshipView', (documentURI: vscode.Uri) => {
@@ -65,9 +98,12 @@ export class SetupManager {
             // Does this ever trigger without restarting the plugin?
         }));
 
+        authManager.onAuthChange(e => {
+            logger.updateState({ SubjectID: e.identity?.email });
+        });
+
         authManager.getCachedIdentity(true).then(identity => {
             console.log(identity);
-            logger.updateState({ SubjectID: identity?.email });
             logger.logSessionStart();
             logger.logProjectOpen(loggingHash(getStorageRootPath(context) || ''));
             this.showWalkthroughIfNeeded(identity !== null);
@@ -76,21 +112,17 @@ export class SetupManager {
         context.subscriptions.push(...disposables);
     }
 
-    isProvenaActive(): boolean {
-        const provenaActive = vscode.workspace.getConfiguration().get(CONFIG_PROVENA_ACTIVE);
-        return provenaActive === true;
-    }
-
     isProvenaConfigured(isLoggedIn: boolean): boolean {
         const provenaActive = vscode.workspace.getConfiguration().get(CONFIG_PROVENA_ACTIVE);
         if (provenaActive === false) {
             // We never show the walkthrough if provena is explicitly inactive
-            return false;
+            return true;
         }
         return provenaActive !== undefined && isLoggedIn;
     }
 
-    showWarningIfNotConfigured(isLoggedIn: boolean) {
+    showWarningIfNotConfigured() {
+        const isLoggedIn = this.authManager.isLoggedIn;
         if (this.isProvenaConfigured(isLoggedIn)) {
             return;
         }
@@ -101,6 +133,7 @@ export class SetupManager {
         }
         this.lastWarningTime = now;
 
+        this.statusBarManager.setState(StatusBarState.NOT_SET_UP);
         vscode.window.showWarningMessage(
             "Warning: You must finish setting up Provena (or disable it) to get credit for your work.",
             "Open Walkthrough"

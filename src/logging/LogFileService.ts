@@ -2,8 +2,10 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { MainTableEvent } from '../api';
-import { COMMAND_SYNC } from '../constants';
+import { COMMAND_SHOW_SYNC_STATUS, COMMAND_SYNC } from '../constants';
+import { isProvenaActive } from '../ui/SetupManager';
 import { StatusBarManager, StatusBarState } from '../ui/StatusBarManager';
+import { showProvenaStatus } from '../ui/SyncErrorDialog';
 import { BatchEventHandler, IBatchEventHandler } from './BatchEventHandler';
 import { EventLogger } from './EventLogger';
 import { JSONLLogger } from './JSONLogger';
@@ -39,9 +41,15 @@ class SessionSyncStatus {
         // If we haven't tried syncing yet, then we're not synced
         return this.totalLogs > 0 && this.syncedLogs === this.totalLogs;
     }
+
+    getSummary(): string {
+        const status = this.isSynced ? 'Synced' : 'Not Synced';
+        const dateStatus = this.lastSyncedTime ? ` at ${this.lastSyncedTime.toDateString()}` : '';
+        return `${status}: synced ${this.syncedLogs}/${this.totalLogs} logs ${dateStatus}`;
+    }
 }
 
-class SyncStatus {
+export class SyncStatus {
     thisSession = new SessionSyncStatus();
     priorSessions = new SessionSyncStatus();
 
@@ -55,6 +63,10 @@ class SyncStatus {
 
     get errors(): string[] {
         return [...this.thisSession.errors, ...this.priorSessions.errors];
+    }
+
+    getSummary(): string {
+        return `This Session: ${this.thisSession.getSummary()}\nPrior Sessions: ${this.priorSessions.getSummary()}`;
     }
 }
 
@@ -95,10 +107,16 @@ export class LogFileService implements IBatchEventHandler {
             ]);
             this.updateStatusForSyncComplete(true);
         });
+        vscode.commands.registerCommand(COMMAND_SHOW_SYNC_STATUS, () => {
+            showProvenaStatus(this.status);
+        });
         this.pushUnsyncedLogs();
     }
 
     async onEvents(events: MainTableEvent[]): Promise<boolean> {
+        if (!isProvenaActive()) {
+            return false;
+        }
         this.statusBarManager.setState(StatusBarState.SYNCING);
         console.log('----starting sync-----');
         const syncResult = await this.syncer.pushLogLines(events);
@@ -168,6 +186,9 @@ export class LogFileService implements IBatchEventHandler {
     }
 
     public async pushUnsyncedLogs(): Promise<boolean> {
+        if (!isProvenaActive()) {
+            return false;
+        }
         if (this.isSyncing) {
             return false;
         }

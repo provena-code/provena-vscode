@@ -25,16 +25,18 @@ export class ServerLogger implements ILogSyncer {
                 return { result: SyncResultType.Rejected, error: all_errors };
             }
         } catch (error) {
+            const statusText = (error as ApiError)?.statusText ?? "unknown error";
+
             if (error instanceof ApiError && error.status === 422) {
                 console.log(`Malformatted log lines`, error);
-                return { result: SyncResultType.Rejected, error: error.statusText };
+                return { result: SyncResultType.Rejected, error: statusText };
             }
 
             // Could be any server error other than malformatted data
             // but most likely the server is down. Regardless, suggests we
             // should resend.
             console.error(`Error pushing log lines`, error);
-            return { result: SyncResultType.Unavailable };
+            return { result: SyncResultType.Unavailable, error: statusText };
         }
     }
 }
