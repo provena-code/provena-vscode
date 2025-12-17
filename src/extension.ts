@@ -3,6 +3,7 @@
 import * as vscode from 'vscode';
 import { name, publisher, version } from '../package.json';
 import { AuthManager } from './auth/AuthManager';
+import { envConfig } from './config';
 import { CONTEXT_IS_LOGGED_IN } from './constants';
 import { EditDisplay } from './display/EditDisplay';
 import { EventLogger } from './logging/EventLogger';
@@ -23,7 +24,8 @@ let loggerToClose: EventLogger | null = null;
 export function activate(context: vscode.ExtensionContext) {
 	console.log('start!');
 
-	EventLogger.configure('http://127.0.0.1:8000/');
+	EventLogger.configure(envConfig.apiRoot);
+	console.log('API Root:', envConfig.apiRoot);
 
 	// Might be a good idea to force 0-args constructors
 	const sessionID = generateID();
