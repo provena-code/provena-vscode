@@ -1,7 +1,9 @@
 
-import * as vscode from 'vscode';
-import { EditList, EditNode, Span, toPOJO } from 'provena';
 import * as devalue from 'devalue';
+import { EditList, EditNode, Span, toPOJO } from 'provena';
+import * as vscode from 'vscode';
+import { Singletons } from '../Singletons';
+import { EditListService } from './EditListService';
 
 export class EditDisplay {
 
@@ -9,9 +11,17 @@ export class EditDisplay {
     private isWebviewLoaded: boolean = false;
     private onLoadedCallback: (() => void) | null = null;
 
+    private codestateSection: string | null = null;
+
+    private editListService!: EditListService;
+
     constructor(
         private readonly context: vscode.ExtensionContext,
     ) {
+    }
+
+    public init(singletons: Singletons) {
+        this.editListService = singletons.editListService;
     }
 
     private createNewPanel(context: vscode.ExtensionContext) {
@@ -47,6 +57,15 @@ export class EditDisplay {
         return panel;
     }
 
+    public switchToCodestateSection(codestateSection: string) {
+        if (this.codestateSection === codestateSection) {
+            return;
+        }
+        this.codestateSection = codestateSection;
+        this.update();
+    }
+
+
     public reveal(preserveFocus: boolean = false) {
         if (!this.panel) {
             this.panel = this.createNewPanel(this.context);
@@ -54,11 +73,15 @@ export class EditDisplay {
         if (!this.panel.visible) {
             this.panel.reveal(undefined, preserveFocus);
         }
+        // TODO: If not selected CodeStateSection, allow user to pick
     }
 
-    public update(editList: EditList) {
-        if (!this.panel) {
+    public update(editList?: EditList) {
+        if (!this.panel || !this.codestateSection) {
             return;
+        }
+        if (!editList) {
+            editList = this.editListService.getOrCreateBuilder(this.codestateSection).editList;
         }
         const edits = editList.getEdits();
         const serializedEdits = devalue.stringify(edits, {

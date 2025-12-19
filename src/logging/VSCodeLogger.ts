@@ -35,8 +35,12 @@ export class VSCodeLogger {
         );
     }
 
-    public logFileFocus(document: vscode.TextDocument) {
-        this.logger.logFileFocus(getCodeStateSecion(document.uri));
+    public logFileFocus(document: vscode.TextDocument, addCode: boolean) {
+        this.logger.logFileFocus(
+            getCodeStateSecion(document.uri),
+            undefined,
+            addCode ? document.getText() : undefined
+        );
         this.checkForCopyLogEvent(document);
     }
 

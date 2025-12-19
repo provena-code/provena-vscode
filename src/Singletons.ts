@@ -1,9 +1,10 @@
 import * as vscode from 'vscode';
 import { AuthManager } from './auth/AuthManager';
 import { EditDisplay } from './display/EditDisplay';
+import { EditListService } from './display/EditListService';
 import { EventLogger } from './logging/EventLogger';
+import { LogFileService } from './logging/LogFileService';
 import { VSCodeLogger } from './logging/VSCodeLogger';
-import { FileDataMap } from './recorder/FileDataMap';
 import { SetupManager } from './ui/SetupManager';
 import { StatusBarManager } from './ui/StatusBarManager';
 
@@ -14,8 +15,9 @@ import { StatusBarManager } from './ui/StatusBarManager';
     authManager: AuthManager;
     editDisplay: EditDisplay;
     setupManager: SetupManager;
-    fileDataMap: FileDataMap;
     statusBarManager: StatusBarManager;
+    editListService: EditListService;
+    logFileService?: LogFileService;
 };
 
 export type Singletons = Readonly<_Singletons>;

@@ -75,6 +75,12 @@ export interface ILogSyncer {
     pushLogLines(lines: object[]): Promise<SyncResult>;
 }
 
+export type LogFile = {
+    filePath: string,
+    lines: string[],
+    sessionID: string
+}
+
 export class LogFileService implements IBatchEventHandler {
     private readonly rootDir: string;
     private isSyncing: boolean = false;
@@ -185,17 +191,9 @@ export class LogFileService implements IBatchEventHandler {
         await fs.writeFile(cursorPath, lineNumber.toString(), 'utf-8');
     }
 
-    public async pushUnsyncedLogs(): Promise<boolean> {
-        if (!isProvenaActive()) {
-            return false;
-        }
-        if (this.isSyncing) {
-            return false;
-        }
-        this.isSyncing = true;
-        this.statusBarManager.setState(StatusBarState.SYNCING);
-        const status = this.status.priorSessions = new SessionSyncStatus();
+    public async getAllLogs(): Promise<LogFile[]> {
         const files = (await fs.readdir(this.rootDir)).filter(isLogFile).sort();
+        const logFiles: LogFile[] = [];
         for (const file of files) {
             if (file.includes(this.sessionID)) {
                 continue;
@@ -209,64 +207,101 @@ export class LogFileService implements IBatchEventHandler {
             const filePath = path.join(this.rootDir, file);
             const content = await fs.readFile(filePath, 'utf-8');
             const lines = content.split('\n').filter(line => line.trim() !== '');
+            logFiles.push({ filePath, lines, sessionID });
 
-            if (lines.length === 0) {
+        }
+        return logFiles;
+    }
+
+    public async pushUnsyncedLogs(): Promise<boolean> {
+        if (!isProvenaActive()) {
+            return false;
+        }
+        if (this.isSyncing) {
+            return false;
+        }
+        this.isSyncing = true;
+        this.statusBarManager.setState(StatusBarState.SYNCING);
+        const status = this.status.priorSessions = new SessionSyncStatus();
+        const logFiles = await this.getAllLogs();
+        for (const logFile of logFiles) {
+            if (logFile.sessionID === this.sessionID) {
                 continue;
             }
 
-            // 0-based
-            let lastSyncedLine = await this.getCachedLastSyncedLogLine(filePath);
-            if (lastSyncedLine === lines.length - 1) {
-                console.log(`Log file ${filePath} is already fully synced.`);
-                // Only skip checking the server if we're sure
-                // it's up to date on this file
-                continue; // Already synced
-            }
-
-            // Check the server even if we have a cached value, since
-            // it could have changed we cached it
-            lastSyncedLine = await this.syncer.getLastSyncedLogLine(sessionID);
-            // and cache it
-            await this.setCachedLastSyncedLogLine(filePath, lastSyncedLine);
-            console.log(`Syncing log file ${filePath} from line ${lastSyncedLine + 1}`);
-
-            const unsyncedLines = lines.slice(lastSyncedLine + 1);
-            if (unsyncedLines.length > 0) {
-                const logObjects = unsyncedLines.map(line => {
-                    try {
-                        return JSON.parse(line);
-                    } catch {
-                        return null;
-                    }
-                }).filter(obj => obj !== null) as object[];
-                const syncResult = await this.syncer.pushLogLines(logObjects);
-
-                status.totalLogs += lines.length;
-                status.syncedLogs += lastSyncedLine + 1;
-                if (syncResult.result === SyncResultType.Success) {
-                    await this.setCachedLastSyncedLogLine(filePath, lastSyncedLine + unsyncedLines.length);
-                    status.syncedLogs += unsyncedLines.length;
-                }
-                if (syncResult.result === SyncResultType.Unavailable) {
-                    this.isSyncing = false;
-                    status.serverUnavailable = true;
-                    status.errors.push(`Could not connect to the server: ${syncResult.error}`);
-                    console.log(`Unable to sync right now; stopping further sync attempts.`);
-                    return false;
-                } else if (syncResult.result === SyncResultType.Rejected) {
-                    status.errors.push(`Server rejected log for session ${sessionID}: ${syncResult.error}`);
-                    console.log(`Server rejected log ${filePath}`, logObjects);
-                    // TODO: Decide how to handle Rejected logs
-                    // If the server is battle-tested, then sure, we should ignore them
-                    // but for now, I'd rather have the chance to fix the server if something's wrong
-                    // and try resending them later...
-                    // await this.setCachedLastSyncedLogLine(filePath, lastSyncedLine + unsyncedLines.length);
-                    continue;
-                }
+            // Probably should keep synchronous so the logs arrive in their original order
+            const shouldContinue = await this.syncFile(logFile, status)
+                // Shouldn't happen, but just in case
+                .catch((e) => {
+                    status.errors.push(`Error syncing log file ${logFile.filePath}: ${e}`);
+                    console.log(`Error syncing log file ${logFile.filePath}:`, e);
+                    return true;
+                });
+            if (!shouldContinue) {
+                break;
             }
         }
         this.isSyncing = false;
         this.updateStatusForSyncComplete();
+        return true;
+    }
+
+    private async syncFile(logFile: LogFile, status: SessionSyncStatus) : Promise<boolean> {
+        const { filePath, lines, sessionID } = logFile;
+        if (lines.length === 0) {
+            return true;
+        }
+
+        // 0-based
+        let lastSyncedLine = await this.getCachedLastSyncedLogLine(filePath);
+        if (lastSyncedLine === lines.length - 1) {
+            console.log(`Log file ${filePath} is already fully synced.`);
+            // Only skip checking the server if we're sure
+            // it's up to date on this file
+            return true; // Already synced
+        }
+
+        // Check the server even if we have a cached value, since
+        // it could have changed we cached it
+        lastSyncedLine = await this.syncer.getLastSyncedLogLine(sessionID);
+        // and cache it
+        await this.setCachedLastSyncedLogLine(filePath, lastSyncedLine);
+        console.log(`Syncing log file ${filePath} from line ${lastSyncedLine + 1}`);
+
+        const unsyncedLines = lines.slice(lastSyncedLine + 1);
+        if (unsyncedLines.length > 0) {
+            const logObjects = unsyncedLines.map(line => {
+                try {
+                    return JSON.parse(line);
+                } catch {
+                    return null;
+                }
+            }).filter(obj => obj !== null) as object[];
+            const syncResult = await this.syncer.pushLogLines(logObjects);
+
+            status.totalLogs += lines.length;
+            status.syncedLogs += lastSyncedLine + 1;
+            if (syncResult.result === SyncResultType.Success) {
+                await this.setCachedLastSyncedLogLine(filePath, lastSyncedLine + unsyncedLines.length);
+                status.syncedLogs += unsyncedLines.length;
+            }
+            if (syncResult.result === SyncResultType.Unavailable) {
+                this.isSyncing = false;
+                status.serverUnavailable = true;
+                status.errors.push(`Could not connect to the server: ${syncResult.error}`);
+                console.log(`Unable to sync right now; stopping further sync attempts.`);
+                return false;
+            } else if (syncResult.result === SyncResultType.Rejected) {
+                status.errors.push(`Server rejected log for session ${sessionID}: ${syncResult.error}`);
+                console.log(`Server rejected log ${filePath}`, logObjects);
+                // TODO: Decide how to handle Rejected logs
+                // If the server is battle-tested, then sure, we should ignore them
+                // but for now, I'd rather have the chance to fix the server if something's wrong
+                // and try resending them later...
+                // await this.setCachedLastSyncedLogLine(filePath, lastSyncedLine + unsyncedLines.length);
+                return true;
+            }
+        }
         return true;
     }
 }

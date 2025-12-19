@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { AuthManager } from "../auth/AuthManager";
 import { COMMAND_LOGIN, COMMAND_LOGOUT, COMMAND_SET_ACTIVE, COMMAND_SET_INACTIVE, COMMAND_SETUP, CONFIG_PROVENA_ACTIVE } from "../constants";
-import { getStorageRootPath } from "../logging/Util";
+import { getCodeStateSecion, getStorageRootPath } from "../logging/Util";
 import { Singletons } from "../Singletons";
 import { loggingHash } from "../util";
 import { StatusBarManager, StatusBarState } from './StatusBarManager';
@@ -83,14 +83,15 @@ export class SetupManager {
 
         disposables.push(vscode.commands.registerCommand('provena.openAuthorshipView', (documentURI: vscode.Uri) => {
             editDisplay.reveal();
-            if (documentURI) {
-                console.log(`Opening authorship view for document: ${documentURI.toString()}`);
-                const document = vscode.workspace.textDocuments.find(doc => doc.uri.toString() === documentURI.toString());
-                console.log("found document:", document);
-                if (document) {
-                    vscode.window.showTextDocument(document);
-                }
-            }
+            editDisplay.switchToCodestateSection(getCodeStateSecion(documentURI));
+            // if (documentURI) {
+            //     console.log(`Opening authorship view for document: ${documentURI.toString()}`);
+            //     const document = vscode.workspace.textDocuments.find(doc => doc.uri.toString() === documentURI.toString());
+            //     console.log("found document:", document);
+            //     if (document && document.) {
+            //         vscode.window.showTextDocument(document);
+            //     }
+            // }
         }));
 
         disposables.push(vscode.workspace.onDidChangeWorkspaceFolders(event => {

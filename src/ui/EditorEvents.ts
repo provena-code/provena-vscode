@@ -1,10 +1,11 @@
 import * as vscode from 'vscode';
+import { getCodeStateSecion } from '../logging/Util';
 import { Singletons } from "../Singletons";
 import { isProvenaActive } from './SetupManager';
 
 export function createEditorEvents(singletons: Singletons) {
 
-    const { context, vscodeLogger, fileDataMap, editDisplay, setupManager, authManager } = singletons;
+    const { context, vscodeLogger, editDisplay, setupManager, editListService } = singletons;
     const disposables: vscode.Disposable[] = [];
 
     function isOutsideOfWorkspace(document: vscode.TextDocument): boolean {
@@ -19,7 +20,6 @@ export function createEditorEvents(singletons: Singletons) {
 		}
 
 		lastActiveDocument = document;
-		console.log(`Document changed: ${document.uri.toString()}`);
 
         // TODO: Raise a warning dialog if the file is not in a workspace
 		// If the document is not in a workspace, ignore it
@@ -27,19 +27,13 @@ export function createEditorEvents(singletons: Singletons) {
 			return;
 		}
 
-		vscodeLogger.logFileFocus(document);
-        // TODO: Decide on whether we want to verify editList integrity on focus
+		const verified = editListService.isEditListVerified(document);
+		vscodeLogger.logFileFocus(document, !verified);
 
-		const { editList } = fileDataMap.getFileData(document.uri);
-		// TODO: We should really have a sync text event that triggers if ever the
-		// text doesn't match
-		if (editList.isEmpty()) {
-			editList.setInitialText(document.getText(), new Date().getTime());
-		} else {
-			// TODO: Ensure that last text == new text
-		}
-		editDisplay.update(editList);
-		// logger.logFileFocus(document.uri.toString());
+		// Doesn't reveal, just updates the codestate section
+		editDisplay.switchToCodestateSection(
+			getCodeStateSecion(document.uri)
+		);
 	}
 
 	disposables.push(vscode.window.onDidChangeActiveTextEditor(editor => {
@@ -51,8 +45,6 @@ export function createEditorEvents(singletons: Singletons) {
 	disposables.push(vscode.window.onDidChangeTextEditorSelection(event => {
 		vscodeLogger.checkForCopyLogEvent(event.textEditor.document);
 	}));
-
-	let lastCopiedText: string | null = null;
 
 	disposables.push(vscode.workspace.onDidChangeTextDocument(async event => {
 		// TODO: Should be redundant soon, but should test
@@ -68,20 +60,6 @@ export function createEditorEvents(singletons: Singletons) {
 		}
 
         vscodeLogger.logFileEdit(event);
-
-		const { editList, eventRecorder } = fileDataMap.getFileData(event.document.uri);
-
-		const clipboardText = await vscode.env.clipboard.readText();
-		if (clipboardText !== lastCopiedText) {
-			eventRecorder.recordCopy(clipboardText);
-			lastCopiedText = clipboardText;
-		}
-		// TODO: The event recorder should probably
-		// generate -> ProgSnap... but maybe the other way around?
-		eventRecorder.recordDocumentChange(event);
-		editDisplay.update(editList);
-		// console.log(`Current edits: ${editList.toString()}`);
-
 		setupManager.showWarningIfNotConfigured();
 	}));
 
