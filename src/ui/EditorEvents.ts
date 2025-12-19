@@ -75,6 +75,12 @@ export function createEditorEvents(singletons: Singletons) {
         vscodeLogger.logFileSave(document);
     }));
 
+	disposables.push(vscode.workspace.onDidRenameFiles(event => {
+		event.files.forEach(file => {
+			vscodeLogger.logFileRename(file.oldUri, file.newUri);
+		});
+	}));
+
 	disposables.push(vscode.tasks.onDidStartTask(event => {
 		console.log(`Task started: ${event.execution.task.name}`);
 	}));

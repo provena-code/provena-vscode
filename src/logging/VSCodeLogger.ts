@@ -112,4 +112,11 @@ export class VSCodeLogger {
         this.logger.logFileOpen(getCodeStateSecion(document.uri), document.getText());
         this.checkForCopyLogEvent(document);
     }
+
+    public logFileRename(oldUri: vscode.Uri, newUri: vscode.Uri) {
+        this.logger.logFileRename(
+            getCodeStateSecion(oldUri),
+            getCodeStateSecion(newUri)
+        );
+    }
 }
