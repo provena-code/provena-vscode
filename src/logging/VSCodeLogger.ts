@@ -76,7 +76,7 @@ export class VSCodeLogger {
                 }
             }
 
-            parentEventID = this.logger.logFileEdit(
+            const thisParentEventID = this.logger.logFileEdit(
                 codeStateSection,
                 editType,
                 undefined,
@@ -87,6 +87,10 @@ export class VSCodeLogger {
                 change.rangeLength,
                 parentEventID
             ).ParentEventID || undefined;
+
+            if (!parentEventID) {
+                parentEventID = thisParentEventID;
+            }
         });
     }
 

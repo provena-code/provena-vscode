@@ -31,6 +31,10 @@ export function activate(context: vscode.ExtensionContext) {
 	const sessionID = generateID();
 	const toolInstance = `${publisher}.${name}-${version}`;
 	const logger = loggerToClose = new EventLogger(sessionID, toolInstance);
+	// TODO: Need a more robust system for logging permissions with
+	// 1) a clear differentiation between when we should log locally, remotely, or not at all
+	// 2) handling user not being logged in
+	// 3) event handling to update when any of these change
 	logger.setActive(!isProvenaDisabled());
 	const vscodeLogger = new VSCodeLogger();
 	const authManager = new AuthManager(context);
