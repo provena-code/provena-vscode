@@ -22,10 +22,20 @@ export function isProvenaDisabled(): boolean {
     return provenaActive === false;
 }
 
+export function shouldLogLocally(): boolean {
+    return !isProvenaDisabled();
+}
+
+export function shouldLogRemotely(): boolean {
+    return isProvenaActive();
+}
+
 export class SetupManager {
     lastWarningTime: number | null = null;
     authManager!: AuthManager;
     statusBarManager!: StatusBarManager;
+
+    public readonly onSetupStatusChange = new vscode.EventEmitter<void>();
 
     constructor() {
 
@@ -42,6 +52,19 @@ export class SetupManager {
 
         const disposables: vscode.Disposable[] = [];
 
+        this.onSetupStatusChange.event(() => {
+            singletons.logger.setActive(!isProvenaDisabled());
+            this.showWarningIfNotConfigured();
+            if (!this.isProvenaConfigured()) {
+                this.statusBarManager.setState(StatusBarState.NOT_SET_UP);
+            } else if (isProvenaDisabled()) {
+                this.statusBarManager.setState(StatusBarState.DISABLED);
+            } else {
+                // Since we won't have synced logs yet
+                this.statusBarManager.setState(StatusBarState.UNABLE_TO_SYNC);
+            }
+        });
+
         disposables.push(vscode.commands.registerCommand(COMMAND_SETUP, () => {
             vscode.commands.executeCommand(
                 'workbench.action.openWalkthrough',
@@ -55,12 +78,10 @@ export class SetupManager {
 
         disposables.push(vscode.commands.registerCommand(COMMAND_LOGIN, async () => {
             await authManager.ensureLoggedIn();
-            this.showWarningIfNotConfigured();
         }));
 
         disposables.push(vscode.commands.registerCommand(COMMAND_LOGOUT, async () => {
             await authManager.logout();
-            this.showWarningIfNotConfigured();
         }));
 
         disposables.push(vscode.commands.registerCommand(COMMAND_SET_ACTIVE, () => {
@@ -69,15 +90,13 @@ export class SetupManager {
         }));
 
         disposables.push(vscode.commands.registerCommand(COMMAND_SET_INACTIVE, () => {
-            vscode.window.showInformationMessage("Provena is disabled. To change this setting, ask your instructor.");
+            vscode.window.showInformationMessage("Provena is disabled. To change this setting, click 'Provena is disabled' in your status bar.");
             vscode.workspace.getConfiguration().update(CONFIG_PROVENA_ACTIVE, false, vscode.ConfigurationTarget.Workspace);
         }));
 
         disposables.push(vscode.workspace.onDidChangeConfiguration(event => {
             if (event.affectsConfiguration(CONFIG_PROVENA_ACTIVE)) {
-                // Still log locally unless explicitly disabled
-                singletons.logger.setActive(!isProvenaDisabled());
-                this.showWarningIfNotConfigured();
+                this.onSetupStatusChange.fire();
             }
         }));
 
@@ -101,19 +120,21 @@ export class SetupManager {
 
         authManager.onAuthChange(e => {
             logger.updateState({ SubjectID: e.identity?.email });
+            this.onSetupStatusChange.fire();
         });
 
         authManager.getCachedIdentity(true).then(identity => {
             console.log(identity);
             logger.logSessionStart();
             logger.logProjectOpen(loggingHash(getStorageRootPath(context) || ''));
-            this.showWalkthroughIfNeeded(identity !== null);
+            this.showWalkthroughIfNeeded();
         });
 
         context.subscriptions.push(...disposables);
     }
 
-    isProvenaConfigured(isLoggedIn: boolean): boolean {
+    isProvenaConfigured(): boolean {
+        const isLoggedIn = this.authManager.isLoggedIn;
         const provenaActive = vscode.workspace.getConfiguration().get(CONFIG_PROVENA_ACTIVE);
         if (provenaActive === false) {
             // We never show the walkthrough if provena is explicitly inactive
@@ -123,8 +144,7 @@ export class SetupManager {
     }
 
     showWarningIfNotConfigured() {
-        const isLoggedIn = this.authManager.isLoggedIn;
-        if (this.isProvenaConfigured(isLoggedIn)) {
+        if (this.isProvenaConfigured()) {
             return;
         }
         const now = new Date().getTime();
@@ -134,19 +154,18 @@ export class SetupManager {
         }
         this.lastWarningTime = now;
 
-        this.statusBarManager.setState(StatusBarState.NOT_SET_UP);
         vscode.window.showWarningMessage(
             "Warning: You must finish setting up Provena (or disable it) to get credit for your work.",
             "Open Walkthrough"
         ).then(selection => {
             if (selection === "Open Walkthrough") {
-                this.showWalkthroughIfNeeded(isLoggedIn);
+                this.showWalkthroughIfNeeded();
             }
         });
     }
 
-    showWalkthroughIfNeeded(isLoggedIn: boolean) {
-        if (this.isProvenaConfigured(isLoggedIn)) {
+    showWalkthroughIfNeeded() {
+        if (this.isProvenaConfigured()) {
             return;
         }
         vscode.commands.executeCommand(COMMAND_SETUP);

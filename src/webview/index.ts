@@ -1,6 +1,6 @@
+import * as devalue from 'devalue';
 import { EditNode, Span } from "provena";
 import { CodeRenderer } from "./CodeRenderer";
-import * as devalue from 'devalue';
 import { GraphRenderer } from "./GraphRenderer";
 
 const renderer = new CodeRenderer('code-container');
@@ -24,6 +24,8 @@ function loadData(editsString: string) {
     console.log(edits);
     renderer.render(edits);
     graphRenderer.render(edits);
+    const showWelcome = edits.length === 0;
+    document.getElementById('welcome')!.style.display = showWelcome ? 'block' : 'none';
 }
 
 window.onmessage = (event) => {

@@ -121,6 +121,7 @@ export class EditDisplay {
             </head>
             <body>
             <div id="root">
+                <span id="welcome">Open a file to see your authorship history.</span>
                 <div>
                     <pre id="code-container"></pre>
                 </div>
