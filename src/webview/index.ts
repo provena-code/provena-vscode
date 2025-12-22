@@ -6,6 +6,8 @@ import { GraphRenderer } from "./GraphRenderer";
 const renderer = new CodeRenderer('code-container');
 const graphRenderer = new GraphRenderer('graph-container');
 
+declare function acquireVsCodeApi(): any;
+
 function loadData(editsString: string) {
     const edits: EditNode[] = devalue.parse(editsString, {
         EditNode: (obj) => {

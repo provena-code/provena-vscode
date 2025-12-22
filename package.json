@@ -3,7 +3,8 @@
   "publisher": "hintslab",
   "displayName": "Provena",
   "description": "",
-  "version": "0.0.1",
+  "version": "0.1.0",
+  "icon": "icon.png",
   "engines": {
     "vscode": "^1.104.0"
   },
