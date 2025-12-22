@@ -7,8 +7,8 @@
     "strict": true,
     "jsx": "react-jsx", // if you’re using React/TSX
     "sourceMap": true,
-    "rootDir": "src/",
-    "outDir": "out/webview"
+    "rootDirs": ["src", "core/src"],
+    "outDir": "out/webview",
   },
   "include": ["src/webview/**/*", "src/shared/**/*"],
 }

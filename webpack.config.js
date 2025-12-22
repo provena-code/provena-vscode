@@ -40,6 +40,7 @@ module.exports = (env, argv) => {
     externals: {
       vscode: 'commonjs vscode' // the vscode-module is created on-the-fly and must be excluded. Add other modules that cannot be webpack'ed, 📖 -> https://webpack.js.org/configuration/externals/
       // modules added here also need to be added in the .vscodeignore file
+
     },
     resolve: {
       // support reading TypeScript and JavaScript files, 📖 -> https://github.com/TypeStrong/ts-loader
@@ -52,7 +53,10 @@ module.exports = (env, argv) => {
           exclude: /node_modules/,
           use: [
             {
-              loader: 'ts-loader'
+              loader: 'ts-loader',
+              options: {
+                configFile: path.resolve(__dirname, 'tsconfig.extension.json')
+              }
             }
           ]
         }
@@ -82,7 +86,18 @@ module.exports = (env, argv) => {
     },
     module: {
       rules: [
-        { test: /\.tsx?$/, exclude: /node_modules/, use: 'ts-loader' }
+        {
+          test: /\.tsx?$/,
+          exclude: /node_modules/,
+          use: [
+            {
+              loader: 'ts-loader',
+              options: {
+                configFile: path.resolve(__dirname, 'tsconfig.webview.json')
+              }
+            }
+          ]
+        }
       ]
     },
     devtool: 'source-map',
