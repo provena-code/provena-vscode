@@ -42,10 +42,16 @@ class SessionSyncStatus {
         return this.totalLogs > 0 && this.syncedLogs === this.totalLogs;
     }
 
+    setSuccess(syncedLogs: number) {
+        this.syncedLogs = syncedLogs;
+        this.totalLogs = syncedLogs;
+        this.errors = [];
+    }
+
     getSummary(): string {
         const status = this.isSynced ? 'Synced' : 'Not Synced';
         const dateStatus = this.lastSyncedTime ? ` at ${this.lastSyncedTime.toDateString()}` : '';
-        return `${status}: synced ${this.syncedLogs}/${this.totalLogs} logs ${dateStatus}`;
+        return `${status}: ${this.syncedLogs}/${this.totalLogs} logs ${dateStatus}`;
     }
 }
 
@@ -66,7 +72,7 @@ export class SyncStatus {
     }
 
     getSummary(): string {
-        return `This Session: ${this.thisSession.getSummary()}\nPrior Sessions: ${this.priorSessions.getSummary()}`;
+        return `This Session: ${this.thisSession.getSummary()}. Prior Sessions: ${this.priorSessions.getSummary()}.`;
     }
 }
 
@@ -111,7 +117,7 @@ export class LogFileService implements IBatchEventHandler {
                 this.pushUnsyncedLogs(),
                 this.batchHandler?.flush()
             ]);
-            this.updateStatusForSyncComplete(true);
+            this.updateStatusBar(true);
         });
         vscode.commands.registerCommand(COMMAND_SHOW_SYNC_STATUS, () => {
             showProvenaStatus(this.status);
@@ -124,7 +130,6 @@ export class LogFileService implements IBatchEventHandler {
             return false;
         }
         this.statusBarManager.setState(StatusBarState.SYNCING);
-        console.log('----starting sync-----');
         const syncResult = await this.syncer.pushLogLines(events);
         const sessionStatus = this.status.thisSession;
         sessionStatus.serverUnavailable = syncResult.result === SyncResultType.Unavailable;
@@ -132,8 +137,8 @@ export class LogFileService implements IBatchEventHandler {
             await this.setCachedLastSyncedLogLine(this.localLogger.logPath, this.nSyncedLogs);
             this.nSyncedLogs += events.length;
             sessionStatus.lastSyncedTime = new Date();
-            sessionStatus.syncedLogs = sessionStatus.totalLogs = this.nSyncedLogs;
-            this.updateStatusForSyncComplete();
+            sessionStatus.setSuccess(this.nSyncedLogs);
+            this.updateStatusBar();
 
             // If we just successfully synced this session, and
             // there are still unsynced logs from previous sessions,
@@ -146,17 +151,24 @@ export class LogFileService implements IBatchEventHandler {
         }
         // TODO: Decide how to handle Rejected logs
         sessionStatus.totalLogs = this.nSyncedLogs + events.length;
+        // TODO: For some reason the error is "unknown"
         sessionStatus.errors.push(`Failed to sync this session: ${syncResult.error}`);
-        this.updateStatusForSyncComplete();
+        this.updateStatusBar();
         return false;
     }
 
-    private updateStatusForSyncComplete(forceShowErrors: boolean = false): void {
-        if (this.status.isSynced) {
+    private updateStatusBar(forceShowErrors: boolean = false): void {
+        // Avoid early "failed" sync when we haven't logged anything yet
+        if (this.isSyncing || this.nSyncedLogs === 0) {
+            this.statusBarManager.setState(StatusBarState.SYNCING);
+        } else if (this.status.isSynced) {
             this.statusBarManager.setState(StatusBarState.SYNCED);
         } else if (!forceShowErrors && this.status.serverUnavailable) {
             this.statusBarManager.setState(StatusBarState.UNABLE_TO_SYNC);
         } else {
+            console.log('Setting status bar to ERROR state due to sync errors:', this.status.errors);
+            console.log('syncing', this.isSyncing);
+            console.log(this.status.priorSessions.isSynced, this.status.thisSession.isSynced);
             this.statusBarManager.setState(StatusBarState.ERROR);
         }
     }
@@ -221,7 +233,7 @@ export class LogFileService implements IBatchEventHandler {
             return false;
         }
         this.isSyncing = true;
-        this.statusBarManager.setState(StatusBarState.SYNCING);
+        this.updateStatusBar();
         const status = this.status.priorSessions = new SessionSyncStatus();
         const logFiles = await this.getAllLogs();
         for (const logFile of logFiles) {
@@ -231,7 +243,7 @@ export class LogFileService implements IBatchEventHandler {
 
             // Probably should keep synchronous so the logs arrive in their original order
             const shouldContinue = await this.syncFile(logFile, status)
-                // Shouldn't happen, but just in case
+                // Shouldn't happen, but just to make sure we finish
                 .catch((e) => {
                     status.errors.push(`Error syncing log file ${logFile.filePath}: ${e}`);
                     console.log(`Error syncing log file ${logFile.filePath}:`, e);
@@ -242,11 +254,11 @@ export class LogFileService implements IBatchEventHandler {
             }
         }
         this.isSyncing = false;
-        this.updateStatusForSyncComplete();
+        this.updateStatusBar();
         return true;
     }
 
-    private async syncFile(logFile: LogFile, status: SessionSyncStatus) : Promise<boolean> {
+    private async syncFile(logFile: LogFile, status: SessionSyncStatus): Promise<boolean> {
         const { filePath, lines, sessionID } = logFile;
         if (lines.length === 0) {
             return true;
@@ -256,6 +268,8 @@ export class LogFileService implements IBatchEventHandler {
         let lastSyncedLine = await this.getCachedLastSyncedLogLine(filePath);
         if (lastSyncedLine === lines.length - 1) {
             console.log(`Log file ${filePath} is already fully synced.`);
+            status.totalLogs += lines.length;
+            status.syncedLogs += lines.length;
             // Only skip checking the server if we're sure
             // it's up to date on this file
             return true; // Already synced
@@ -286,7 +300,6 @@ export class LogFileService implements IBatchEventHandler {
                 status.syncedLogs += unsyncedLines.length;
             }
             if (syncResult.result === SyncResultType.Unavailable) {
-                this.isSyncing = false;
                 status.serverUnavailable = true;
                 status.errors.push(`Could not connect to the server: ${syncResult.error}`);
                 console.log(`Unable to sync right now; stopping further sync attempts.`);

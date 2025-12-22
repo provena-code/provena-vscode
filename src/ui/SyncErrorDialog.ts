@@ -6,11 +6,11 @@ export function showProvenaStatus(status: SyncStatus) {
     const errorsString = 'Errors: ' + status.errors.join('\n');
 
     if (status.isSynced) {
-        vscode.window.showInformationMessage(`Successfully synced Provena\n${status.getSummary()}`);
+        vscode.window.showInformationMessage(`Successfully synced Provena! ${status.getSummary()}`);
         return;
     }
 
-    vscode.window.showErrorMessage(`Error syncing Provena\n${status.getSummary()}`,
+    vscode.window.showErrorMessage(`Error syncing Proven! ${status.getSummary()}`,
         'Retry',
         'Copy Error Message',
         'Dismiss'

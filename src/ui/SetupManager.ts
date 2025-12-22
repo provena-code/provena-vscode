@@ -61,7 +61,7 @@ export class SetupManager {
                 this.statusBarManager.setState(StatusBarState.DISABLED);
             } else {
                 // Since we won't have synced logs yet
-                this.statusBarManager.setState(StatusBarState.UNABLE_TO_SYNC);
+                this.statusBarManager.setState(StatusBarState.SYNCING);
             }
         });
 
