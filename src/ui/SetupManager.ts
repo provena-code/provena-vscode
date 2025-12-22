@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { AuthManager } from "../auth/AuthManager";
-import { COMMAND_LOGIN, COMMAND_LOGOUT, COMMAND_SET_ACTIVE, COMMAND_SET_INACTIVE, COMMAND_SETUP, CONFIG_PROVENA_ACTIVE } from "../constants";
+import { COMMAND_LOGIN, COMMAND_LOGOUT, COMMAND_SET_ACTIVE, COMMAND_SET_INACTIVE, COMMAND_SETUP, COMMAND_SETUP_CATEGORY, CONFIG_PROVENA_ACTIVE } from "../constants";
 import { getCodeStateSecion, getStorageRootPath } from "../logging/Util";
 import { Singletons } from "../Singletons";
 import { loggingHash } from "../util";
@@ -69,7 +69,7 @@ export class SetupManager {
             vscode.commands.executeCommand(
                 'workbench.action.openWalkthrough',
                 {
-                    category: 'hintslab.provena#setup',
+                    category: COMMAND_SETUP_CATEGORY,
                     step: '*',
                     openToSide: true
                 }
@@ -140,13 +140,15 @@ export class SetupManager {
             // We never show the walkthrough if provena is explicitly inactive
             return true;
         }
-        return provenaActive !== undefined && isLoggedIn;
+        return provenaActive !== null && isLoggedIn;
     }
 
     showWarningIfNotConfigured() {
+        console.log('checking 1....');
         if (this.isProvenaConfigured()) {
             return;
         }
+        console.log('checking 2....');
         const now = new Date().getTime();
         if (this.lastWarningTime && now - this.lastWarningTime < 5 * 1000) {
             // Don't show the warning more than once every 5 seconds

@@ -1,6 +1,6 @@
 {
   "name": "provena",
-  "publisher": "hintslab",
+  "publisher": "HINTSLabatNCState",
   "displayName": "Provena",
   "description": "",
   "version": "0.1.0",
@@ -113,8 +113,8 @@
       "title": "Provena",
       "properties": {
         "provena.active": {
-          "type": "boolean",
-          "default": true,
+          "type": ["boolean", "null"],
+          "default": null,
           "description": "Whether or not Provena is active for this workspace."
         }
       }

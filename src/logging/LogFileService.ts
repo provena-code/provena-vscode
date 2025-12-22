@@ -159,9 +159,14 @@ export class LogFileService implements IBatchEventHandler {
 
     private updateStatusBar(forceShowErrors: boolean = false): void {
         // Avoid early "failed" sync when we haven't logged anything yet
-        if (this.isSyncing || this.nSyncedLogs === 0) {
+        // TODO: This doesn't work the very first time with no historical logs ==> False Failure
+        if (this.isSyncing || this.status.thisSession.totalLogs === 0) {
             this.statusBarManager.setState(StatusBarState.SYNCING);
-        } else if (this.status.isSynced) {
+        } else if (this.status.isSynced ||
+                // A hack to solve the above TODO; kind of dumb
+                (this.status.thisSession.isSynced &&
+                this.status.priorSessions.totalLogs === 0)
+        ) {
             this.statusBarManager.setState(StatusBarState.SYNCED);
         } else if (!forceShowErrors && this.status.serverUnavailable) {
             this.statusBarManager.setState(StatusBarState.UNABLE_TO_SYNC);

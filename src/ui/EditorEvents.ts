@@ -47,6 +47,8 @@ export function createEditorEvents(singletons: Singletons) {
 	}));
 
 	disposables.push(vscode.workspace.onDidChangeTextDocument(async event => {
+		setupManager.showWarningIfNotConfigured();
+
 		// TODO: Should be redundant soon, but should test
 		if (!isProvenaActive()) {
 			return;
@@ -60,7 +62,6 @@ export function createEditorEvents(singletons: Singletons) {
 		}
 
         vscodeLogger.logFileEdit(event);
-		setupManager.showWarningIfNotConfigured();
 	}));
 
     disposables.push(vscode.workspace.onDidOpenTextDocument(document => {
