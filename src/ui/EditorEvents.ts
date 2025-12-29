@@ -9,8 +9,6 @@ export function createEditorEvents(singletons: Singletons) {
     const { context, vscodeLogger, editDisplay, setupManager, editListService } = singletons;
     const disposables: vscode.Disposable[] = [];
 
-
-
 	let lastActiveDocument: vscode.TextDocument | undefined = undefined;
 	function switchActiveEditor(document: vscode.TextDocument, force: boolean = false) {
 
@@ -37,6 +35,8 @@ export function createEditorEvents(singletons: Singletons) {
 		);
 	}
 
+	// ---- Window Events ----
+
 	disposables.push(vscode.window.onDidChangeActiveTextEditor(editor => {
 		if (isProvenaActive() && editor) {
 			switchActiveEditor(editor.document);
@@ -46,6 +46,8 @@ export function createEditorEvents(singletons: Singletons) {
 	disposables.push(vscode.window.onDidChangeTextEditorSelection(event => {
 		vscodeLogger.checkForCopyLogEvent(event.textEditor.document);
 	}));
+
+	// ---- Workspace Events ----
 
 	disposables.push(vscode.workspace.onDidChangeTextDocument(async event => {
 		setupManager.showWarningIfNotConfigured();
@@ -58,6 +60,25 @@ export function createEditorEvents(singletons: Singletons) {
 		}
 
         vscodeLogger.logFileEdit(event);
+	}));
+
+	disposables.push(vscode.workspace.onDidCreateFiles(event => {
+		event.files.forEach(file => {
+			if (isURIOutsideOfWorkspace(file)) {
+				return;
+			}
+			vscodeLogger.logFileCreate(file);
+		});
+	}));
+
+
+	disposables.push(vscode.workspace.onDidDeleteFiles(event => {
+		event.files.forEach(file => {
+			if (isURIOutsideOfWorkspace(file)) {
+				return;
+			}
+			vscodeLogger.logFileDelete(file);
+		});
 	}));
 
     disposables.push(vscode.workspace.onDidOpenTextDocument(document => {
@@ -89,6 +110,9 @@ export function createEditorEvents(singletons: Singletons) {
 			vscodeLogger.logFileRename(file.oldUri, file.newUri);
 		});
 	}));
+
+	// ---- Task and Terminal Events ----
+	// (Not currently working...)
 
 	disposables.push(vscode.tasks.onDidStartTask(event => {
 		console.log(`Task started: ${event.execution.task.name}`);

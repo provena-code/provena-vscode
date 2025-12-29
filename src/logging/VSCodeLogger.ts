@@ -119,4 +119,12 @@ export class VSCodeLogger {
             getCodeStateSecion(newUri)
         );
     }
+
+    public logFileCreate(uri: vscode.Uri) {
+        this.logger.logFileCreate(getCodeStateSecion(uri));
+    }
+
+    public logFileDelete(uri: vscode.Uri) {
+        this.logger.logFileDelete(getCodeStateSecion(uri));
+    }
 }

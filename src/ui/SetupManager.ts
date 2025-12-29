@@ -124,7 +124,6 @@ export class SetupManager {
         });
 
         authManager.getCachedIdentity(true).then(identity => {
-            console.log(identity);
             logger.logSessionStart();
             logger.logProjectOpen(loggingHash(getStorageRootPath(context) || ''));
             this.showWalkthroughIfNeeded();
