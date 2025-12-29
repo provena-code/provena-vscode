@@ -11,10 +11,8 @@ export class JSONLLogger implements IBatchEventHandler {
     constructor(
         public readonly logPath: string,
     ) {
-        console.log(logPath);
         this.batchEventHandler = new BatchEventHandler(this, 20, 200);
         fs.mkdirSync(path.dirname(this.logPath), { recursive: true });
-        // Initialize the log file
     }
 
     public register(eventLogger: EventLogger) {

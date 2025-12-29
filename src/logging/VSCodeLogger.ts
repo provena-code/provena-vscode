@@ -90,7 +90,7 @@ export class VSCodeLogger {
                 undefined,
                 change.rangeLength,
                 parentEventID
-            ).ParentEventID || undefined;
+            ).EventID || undefined;
 
             if (!parentEventID) {
                 parentEventID = thisParentEventID;

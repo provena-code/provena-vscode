@@ -104,6 +104,7 @@ export class LogFileService implements IBatchEventHandler {
         this.rootDir = path.join(rootDir, logsDirName);
         fs.mkdir(this.rootDir, { recursive: true });
         this.localLogger = new JSONLLogger(this.getNewLogFilePath());
+        console.log(`Logging this session to ${this.localLogger.logPath}`);
     }
 
     public init() {
