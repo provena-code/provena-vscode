@@ -51,7 +51,7 @@ class SessionSyncStatus {
     getSummary(): string {
         const status = this.isSynced ? 'Synced' : 'Not Synced';
         const dateStatus = this.lastSyncedTime ? ` at ${this.lastSyncedTime.toDateString()}` : '';
-        return `${status}: ${this.syncedLogs}/${this.totalLogs} logs ${dateStatus}`;
+        return `${status}: ${this.syncedLogs}/${this.totalLogs} logs${dateStatus}`;
     }
 }
 

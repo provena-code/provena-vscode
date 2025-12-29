@@ -143,11 +143,9 @@ export class SetupManager {
     }
 
     showWarningIfNotConfigured() {
-        console.log('checking 1....');
         if (this.isProvenaConfigured()) {
             return;
         }
-        console.log('checking 2....');
         const now = new Date().getTime();
         if (this.lastWarningTime && now - this.lastWarningTime < 5 * 1000) {
             // Don't show the warning more than once every 5 seconds

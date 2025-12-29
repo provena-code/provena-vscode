@@ -10,7 +10,7 @@ export function showProvenaStatus(status: SyncStatus) {
         return;
     }
 
-    vscode.window.showErrorMessage(`Error syncing Proven! ${status.getSummary()}`,
+    vscode.window.showErrorMessage(`Error syncing Provena! ${status.getSummary()}`,
         'Retry',
         'Copy Error Message',
         'Dismiss'
