@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import { getCodeStateSecion } from '../logging/Util';
 import { Singletons } from "../Singletons";
+import { isDocumentValidForLogging, isURIOutsideOfWorkspace, showWarningIfUnableToLog } from './DocumentVerifier';
 import { isProvenaActive } from './SetupManager';
-import { isOutsideOfWorkspace, isURIOutsideOfWorkspace, showWarningIfOutsideWorkspace } from './WorkspaceVerifier';
 
 export function createEditorEvents(singletons: Singletons) {
 
@@ -19,10 +19,9 @@ export function createEditorEvents(singletons: Singletons) {
 		lastActiveDocument = document;
 
 		// If the document is not in a workspace, ignore it
-		if (isOutsideOfWorkspace(document)) {
-			console.log('Active document is outside of workspace: ', document.uri.toString());
+		if (!isDocumentValidForLogging(document)) {
 			// Only show the warning on focus to avoid spamming
-			showWarningIfOutsideWorkspace(document);
+			showWarningIfUnableToLog(document);
 			return;
 		}
 
@@ -44,6 +43,9 @@ export function createEditorEvents(singletons: Singletons) {
 	}));
 
 	disposables.push(vscode.window.onDidChangeTextEditorSelection(event => {
+		if (!isDocumentValidForLogging(event.textEditor.document)) {
+			return;
+		}
 		vscodeLogger.checkForCopyLogEvent(event.textEditor.document);
 	}));
 
@@ -55,7 +57,7 @@ export function createEditorEvents(singletons: Singletons) {
         // Still need update the last opened file
 		switchActiveEditor(event.document);
 
-		if (isOutsideOfWorkspace(event.document)) {
+		if (!isDocumentValidForLogging(event.document)) {
 			return;
 		}
 
@@ -82,21 +84,21 @@ export function createEditorEvents(singletons: Singletons) {
 	}));
 
     disposables.push(vscode.workspace.onDidOpenTextDocument(document => {
-		if (isOutsideOfWorkspace(document)) {
+		if (!isDocumentValidForLogging(document)) {
 			return;
 		}
         vscodeLogger.logFileOpen(document);
     }));
 
     disposables.push(vscode.workspace.onDidCloseTextDocument(document => {
-		if (isOutsideOfWorkspace(document)) {
+		if (!isDocumentValidForLogging(document)) {
 			return;
 		}
         vscodeLogger.logFileClose(document);
     }));
 
     disposables.push(vscode.workspace.onDidSaveTextDocument(document => {
-		if (isOutsideOfWorkspace(document)) {
+		if (!isDocumentValidForLogging(document)) {
 			return;
 		}
         vscodeLogger.logFileSave(document);
