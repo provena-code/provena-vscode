@@ -77,7 +77,7 @@ export function activate(context: vscode.ExtensionContext) {
 	editDisplay.init(singletons);
 
 	authManager.onAuthChange(({ providerId, identity }) => {
-		console.log(`Auth change for provider ${providerId}:`, identity);
+		console.log(`Auth change for provider ${providerId}:`);
 		logger.updateState({ SubjectID: identity?.email });
 		vscode.commands.executeCommand('setContext', CONTEXT_IS_LOGGED_IN, identity !== null);
 	});
