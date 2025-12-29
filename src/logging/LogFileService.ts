@@ -171,9 +171,9 @@ export class LogFileService implements IBatchEventHandler {
         } else if (!forceShowErrors && this.status.serverUnavailable) {
             this.statusBarManager.setState(StatusBarState.UNABLE_TO_SYNC);
         } else {
-            console.log('Setting status bar to ERROR state due to sync errors:', this.status.errors);
-            console.log('syncing', this.isSyncing);
-            console.log(this.status.priorSessions.isSynced, this.status.thisSession.isSynced);
+            // console.log('Setting status bar to ERROR state due to sync errors:', this.status.errors);
+            // console.log('syncing', this.isSyncing);
+            // console.log(this.status.priorSessions.isSynced, this.status.thisSession.isSynced);
             this.statusBarManager.setState(StatusBarState.ERROR);
         }
     }
@@ -272,7 +272,7 @@ export class LogFileService implements IBatchEventHandler {
         // 0-based
         let lastSyncedLine = await this.getCachedLastSyncedLogLine(filePath);
         if (lastSyncedLine === lines.length - 1) {
-            console.log(`Log file ${filePath} is already fully synced.`);
+            // console.log(`Log file ${filePath} is already fully synced.`);
             status.totalLogs += lines.length;
             status.syncedLogs += lines.length;
             // Only skip checking the server if we're sure
@@ -285,7 +285,7 @@ export class LogFileService implements IBatchEventHandler {
         lastSyncedLine = await this.syncer.getLastSyncedLogLine(sessionID);
         // and cache it
         await this.setCachedLastSyncedLogLine(filePath, lastSyncedLine);
-        console.log(`Syncing log file ${filePath} from line ${lastSyncedLine + 1}`);
+        // console.log(`Syncing log file ${filePath} from line ${lastSyncedLine + 1}`);
 
         const unsyncedLines = lines.slice(lastSyncedLine + 1);
         if (unsyncedLines.length > 0) {

@@ -2,15 +2,14 @@ import * as vscode from 'vscode';
 import { getCodeStateSecion } from '../logging/Util';
 import { Singletons } from "../Singletons";
 import { isProvenaActive } from './SetupManager';
+import { isOutsideOfWorkspace, isURIOutsideOfWorkspace, showWarningIfOutsideWorkspace } from './WorkspaceVerifier';
 
 export function createEditorEvents(singletons: Singletons) {
 
     const { context, vscodeLogger, editDisplay, setupManager, editListService } = singletons;
     const disposables: vscode.Disposable[] = [];
 
-    function isOutsideOfWorkspace(document: vscode.TextDocument): boolean {
-        return !vscode.workspace.getWorkspaceFolder(document.uri);
-    }
+
 
 	let lastActiveDocument: vscode.TextDocument | undefined = undefined;
 	function switchActiveEditor(document: vscode.TextDocument, force: boolean = false) {
@@ -21,9 +20,11 @@ export function createEditorEvents(singletons: Singletons) {
 
 		lastActiveDocument = document;
 
-        // TODO: Raise a warning dialog if the file is not in a workspace
 		// If the document is not in a workspace, ignore it
 		if (isOutsideOfWorkspace(document)) {
+			console.log('Active document is outside of workspace: ', document.uri.toString());
+			// Only show the warning on focus to avoid spamming
+			showWarningIfOutsideWorkspace(document);
 			return;
 		}
 
@@ -49,11 +50,6 @@ export function createEditorEvents(singletons: Singletons) {
 	disposables.push(vscode.workspace.onDidChangeTextDocument(async event => {
 		setupManager.showWarningIfNotConfigured();
 
-		// TODO: Should be redundant soon, but should test
-		if (!isProvenaActive()) {
-			return;
-		}
-
         // Still need update the last opened file
 		switchActiveEditor(event.document);
 
@@ -65,19 +61,31 @@ export function createEditorEvents(singletons: Singletons) {
 	}));
 
     disposables.push(vscode.workspace.onDidOpenTextDocument(document => {
+		if (isOutsideOfWorkspace(document)) {
+			return;
+		}
         vscodeLogger.logFileOpen(document);
     }));
 
     disposables.push(vscode.workspace.onDidCloseTextDocument(document => {
+		if (isOutsideOfWorkspace(document)) {
+			return;
+		}
         vscodeLogger.logFileClose(document);
     }));
 
     disposables.push(vscode.workspace.onDidSaveTextDocument(document => {
+		if (isOutsideOfWorkspace(document)) {
+			return;
+		}
         vscodeLogger.logFileSave(document);
     }));
 
 	disposables.push(vscode.workspace.onDidRenameFiles(event => {
 		event.files.forEach(file => {
+			if (isURIOutsideOfWorkspace(file.oldUri) && isURIOutsideOfWorkspace(file.newUri)) {
+				return;
+			}
 			vscodeLogger.logFileRename(file.oldUri, file.newUri);
 		});
 	}));
