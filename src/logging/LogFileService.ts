@@ -38,8 +38,7 @@ class SessionSyncStatus {
     serverUnavailable = false;
 
     get isSynced(): boolean {
-        // If we haven't tried syncing yet, then we're not synced
-        return this.totalLogs > 0 && this.syncedLogs === this.totalLogs;
+        return this.syncedLogs === this.totalLogs;
     }
 
     setSuccess(syncedLogs: number) {
@@ -109,11 +108,6 @@ export class LogFileService implements IBatchEventHandler {
 
     public init() {
         vscode.commands.registerCommand(COMMAND_SYNC, async () => {
-            // Only use the status to update the UI
-            // Let the sync process itself skip redundant updates
-            if (!this.status.isSynced) {
-                this.statusBarManager.setState(StatusBarState.SYNCING);
-            }
             await Promise.all([
                 this.pushUnsyncedLogs(),
                 this.batchHandler?.flush()
@@ -135,8 +129,8 @@ export class LogFileService implements IBatchEventHandler {
         const sessionStatus = this.status.thisSession;
         sessionStatus.serverUnavailable = syncResult.result === SyncResultType.Unavailable;
         if (syncResult.result === SyncResultType.Success) {
-            await this.setCachedLastSyncedLogLine(this.localLogger.logPath, this.nSyncedLogs);
             this.nSyncedLogs += events.length;
+            await this.setCachedLastSyncedLogLine(this.localLogger.logPath, this.nSyncedLogs);
             sessionStatus.lastSyncedTime = new Date();
             sessionStatus.setSuccess(this.nSyncedLogs);
             this.updateStatusBar();
@@ -163,11 +157,7 @@ export class LogFileService implements IBatchEventHandler {
         // TODO: This doesn't work the very first time with no historical logs ==> False Failure
         if (this.isSyncing || this.status.thisSession.totalLogs === 0) {
             this.statusBarManager.setState(StatusBarState.SYNCING);
-        } else if (this.status.isSynced ||
-                // A hack to solve the above TODO; kind of dumb
-                (this.status.thisSession.isSynced &&
-                this.status.priorSessions.totalLogs === 0)
-        ) {
+        } else if (this.status.isSynced) {
             this.statusBarManager.setState(StatusBarState.SYNCED);
         } else if (!forceShowErrors && this.status.serverUnavailable) {
             this.statusBarManager.setState(StatusBarState.UNABLE_TO_SYNC);
