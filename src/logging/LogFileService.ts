@@ -25,10 +25,18 @@ export enum SyncResultType {
     Rejected = 'rejected'
 }
 
-export type SyncResult = {
-    result: SyncResultType,
-    error?: string
+type SuccessSyncResult<T> = {
+    result: SyncResultType.Success
+    response: T
 };
+
+type FailedSyncResult = {
+    result: SyncResultType.Unavailable | SyncResultType.Rejected,
+    error?: string
+    // response?: never
+};
+
+export type SyncResult<T> = SuccessSyncResult<T> | FailedSyncResult;
 
 class SessionSyncStatus {
     errors: string[] = [];
@@ -76,8 +84,8 @@ export class SyncStatus {
 }
 
 export interface ILogSyncer {
-    getLastSyncedLogLine(sessionID: string): Promise<number>;
-    pushLogLines(lines: object[]): Promise<SyncResult>;
+    getLastSyncedLogLine(sessionID: string): Promise<SyncResult<number>>;
+    pushLogLines(lines: object[]): Promise<SyncResult<void>>;
 }
 
 export type LogFile = {
@@ -272,9 +280,22 @@ export class LogFileService implements IBatchEventHandler {
         }
 
         // Check the server even if we have a cached value, since
-        // it could have changed we cached it
-        lastSyncedLine = await this.syncer.getLastSyncedLogLine(sessionID);
-        // and cache it
+        // it could have changed since we cached it
+        const serverLastSyncedLine = await this.syncer.getLastSyncedLogLine(sessionID);
+        // If the server can't be reached, don't try to sync further
+        if (serverLastSyncedLine.result !== SyncResultType.Success) {
+            if (serverLastSyncedLine.result === SyncResultType.Unavailable) {
+                // Shouldn't be possible to fail for any other reason
+                this.handleUnavailableServer(status, serverLastSyncedLine);
+                return false;
+            } else {
+                status.errors.push(`Unknown server error.`);
+                return true;
+            }
+        }
+
+        // Otherwise, use and cache it
+        lastSyncedLine = serverLastSyncedLine.response;
         await this.setCachedLastSyncedLogLine(filePath, lastSyncedLine);
         // console.log(`Syncing log file ${filePath} from line ${lastSyncedLine + 1}`);
 
@@ -296,9 +317,7 @@ export class LogFileService implements IBatchEventHandler {
                 status.syncedLogs += unsyncedLines.length;
             }
             if (syncResult.result === SyncResultType.Unavailable) {
-                status.serverUnavailable = true;
-                status.errors.push(`Could not connect to the server: ${syncResult.error}`);
-                console.log(`Unable to sync right now; stopping further sync attempts.`);
+                this.handleUnavailableServer(status, syncResult);
                 return false;
             } else if (syncResult.result === SyncResultType.Rejected) {
                 status.errors.push(`Server rejected log for session ${sessionID}: ${syncResult.error}`);
@@ -312,5 +331,11 @@ export class LogFileService implements IBatchEventHandler {
             }
         }
         return true;
+    }
+
+    handleUnavailableServer(status: SessionSyncStatus, syncResult: FailedSyncResult) {
+        status.serverUnavailable = true;
+        status.errors.push(`Could not connect to the server: ${syncResult.error}`);
+        console.log(`Unable to sync right now; stopping further sync attempts.`);
     }
 }
