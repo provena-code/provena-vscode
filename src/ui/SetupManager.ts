@@ -3,7 +3,7 @@ import { AuthManager } from "../auth/AuthManager";
 import { COMMAND_LOGIN, COMMAND_LOGOUT, COMMAND_SET_ACTIVE, COMMAND_SET_INACTIVE, COMMAND_SETUP, COMMAND_SETUP_CATEGORY, CONFIG_PROVENA_ACTIVE } from "../constants";
 import { getCodeStateSecion, getStorageRootPath } from "../logging/Util";
 import { Singletons } from "../Singletons";
-import { loggingHash } from "../util";
+import { isWorkspaceOpen, loggingHash } from "../util";
 import { StatusBarManager, StatusBarState } from './StatusBarManager';
 
 /**
@@ -56,7 +56,9 @@ export class SetupManager {
         this.onSetupStatusChange.event(() => {
             singletons.logger.setActive(!isProvenaDisabled());
             this.showWarningIfNotConfigured();
-            if (!this.isProvenaConfigured()) {
+            if (!isWorkspaceOpen()) {
+                this.statusBarManager.setState(StatusBarState.NO_WORKSPACE);
+            } else if (!this.isProvenaConfigured()) {
                 this.statusBarManager.setState(StatusBarState.NOT_SET_UP);
             } else if (isProvenaDisabled()) {
                 this.statusBarManager.setState(StatusBarState.DISABLED);
@@ -146,7 +148,7 @@ export class SetupManager {
     }
 
     showWarningIfNotConfigured() {
-        if (this.isProvenaConfigured() || !this.isInitialized) {
+        if (this.isProvenaConfigured() || !this.isInitialized || !isWorkspaceOpen()) {
             return;
         }
         const now = new Date().getTime();
@@ -166,8 +168,8 @@ export class SetupManager {
         });
     }
 
-    showWalkthroughIfNeeded() {
-        if (this.isProvenaConfigured()) {
+    private showWalkthroughIfNeeded() {
+        if (this.isProvenaConfigured() || !isWorkspaceOpen()) {
             return;
         }
         vscode.commands.executeCommand(COMMAND_SETUP);

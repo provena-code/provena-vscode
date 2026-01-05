@@ -7,7 +7,8 @@ export enum StatusBarState {
     SYNCED = "SYNCED",
     UNABLE_TO_SYNC = "OUT_OF_SYNC",
     SYNCING = "SYNCING",
-    ERROR = "ERROR"
+    ERROR = "ERROR",
+    NO_WORKSPACE = "NO_WORKSPACE",
 }
 
 type StatusBarStateConfig = {
@@ -46,7 +47,11 @@ const stateToConfig: { [key in StatusBarState]: StatusBarStateConfig } = {
         tooltip: "Provena encountered a syncing error. Click to see more details.",
         command: COMMAND_SHOW_SYNC_STATUS,
         color: "red",
-    }
+    },
+    NO_WORKSPACE: {
+        text: "$(circle-slash) No workspace open",
+        tooltip: "No workspace is open, so Provena cannot record your work.",
+    },
 };
 
 export class StatusBarManager {
