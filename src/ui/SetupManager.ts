@@ -132,6 +132,7 @@ export class SetupManager {
             this.showWalkthroughIfNeeded();
         }).finally(() => {
             this.isInitialized = true;
+            this.showWarningIfNotConfigured();
         });
 
         context.subscriptions.push(...disposables);
