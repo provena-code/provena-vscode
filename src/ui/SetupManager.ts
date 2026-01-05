@@ -34,6 +34,7 @@ export class SetupManager {
     lastWarningTime: number | null = null;
     authManager!: AuthManager;
     statusBarManager!: StatusBarManager;
+    isInitialized: boolean = false;
 
     public readonly onSetupStatusChange = new vscode.EventEmitter<void>();
 
@@ -127,6 +128,8 @@ export class SetupManager {
             logger.logSessionStart();
             logger.logProjectOpen(loggingHash(getStorageRootPath(context) || ''));
             this.showWalkthroughIfNeeded();
+        }).finally(() => {
+            this.isInitialized = true;
         });
 
         context.subscriptions.push(...disposables);
@@ -143,7 +146,7 @@ export class SetupManager {
     }
 
     showWarningIfNotConfigured() {
-        if (this.isProvenaConfigured()) {
+        if (this.isProvenaConfigured() || !this.isInitialized) {
             return;
         }
         const now = new Date().getTime();
