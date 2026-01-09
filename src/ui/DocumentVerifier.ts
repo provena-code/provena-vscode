@@ -20,11 +20,25 @@ function isOutsideOfWorkspace(document: vscode.TextDocument): boolean {
 }
 
 export function isURIOutsideOfWorkspace(uri: vscode.Uri): boolean {
+    if (uri.scheme !== 'file') {
+        // Get just the file associated with it, even if it's, e.g. a notebook cell
+        try {
+            const simplifiedURI = vscode.Uri.file(uri.path);
+            return !vscode.workspace.getWorkspaceFolder(simplifiedURI);
+        } catch {
+            console.warn(`Unable to simplify URI for workspace check: ${uri.toString()}`);
+            return true;
+        }
+    }
     return !vscode.workspace.getWorkspaceFolder(uri);
 }
 
 export function showWarningIfUnableToLog(document: vscode.TextDocument) {
     if (isProvenaDisabled()) {
+        return;
+    }
+    // Only show the warning for files edited directly on disk (and notebook cells)
+    if (document.uri.scheme !== 'file' && document.uri.scheme !== 'vscode-notebook-cell') {
         return;
     }
     if (isOutsideOfWorkspace(document)) {
