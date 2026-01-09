@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { EditType } from '../api';
 import { Singletons } from "../Singletons";
 import { EventLogger } from "./EventLogger";
-import { getCodeStateSecion } from './Util';
+import { getCodeStateSection } from './Util';
 
 export class VSCodeLogger {
     private logger!: EventLogger;
@@ -30,14 +30,14 @@ export class VSCodeLogger {
         }
         this.logger.logFileCopytext(
             copiedText,
-            getCodeStateSecion(document.uri),
+            getCodeStateSection(document.uri),
             index.toString(),
         );
     }
 
     public logFileFocus(document: vscode.TextDocument, addCode: boolean) {
         this.logger.logFileFocus(
-            getCodeStateSecion(document.uri),
+            getCodeStateSection(document.uri),
             undefined,
             addCode ? document.getText() : undefined
         );
@@ -49,7 +49,7 @@ export class VSCodeLogger {
         const copiedText = this.lastCopiedText;
 
         const document = event.document;
-        const codeStateSection = getCodeStateSecion(document.uri);
+        const codeStateSection = getCodeStateSection(document.uri);
 
         let editType: EditType | undefined = undefined;
         if (event.reason === vscode.TextDocumentChangeReason.Undo) {
@@ -99,32 +99,32 @@ export class VSCodeLogger {
     }
 
     public logFileSave(document: vscode.TextDocument) {
-        this.logger.logFileSave(getCodeStateSecion(document.uri), document.getText());
+        this.logger.logFileSave(getCodeStateSection(document.uri), document.getText());
         this.checkForCopyLogEvent(document);
     }
 
     public logFileClose(document: vscode.TextDocument) {
-        this.logger.logFileClose(getCodeStateSecion(document.uri));
+        this.logger.logFileClose(getCodeStateSection(document.uri));
         this.checkForCopyLogEvent(document);
     }
 
     public logFileOpen(document: vscode.TextDocument) {
-        this.logger.logFileOpen(getCodeStateSecion(document.uri), document.getText());
+        this.logger.logFileOpen(getCodeStateSection(document.uri), document.getText());
         this.checkForCopyLogEvent(document);
     }
 
     public logFileRename(oldUri: vscode.Uri, newUri: vscode.Uri) {
         this.logger.logFileRename(
-            getCodeStateSecion(oldUri),
-            getCodeStateSecion(newUri)
+            getCodeStateSection(oldUri),
+            getCodeStateSection(newUri)
         );
     }
 
     public logFileCreate(uri: vscode.Uri) {
-        this.logger.logFileCreate(getCodeStateSecion(uri));
+        this.logger.logFileCreate(getCodeStateSection(uri));
     }
 
     public logFileDelete(uri: vscode.Uri) {
-        this.logger.logFileDelete(getCodeStateSecion(uri));
+        this.logger.logFileDelete(getCodeStateSection(uri));
     }
 }

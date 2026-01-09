@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { AuthManager } from "../auth/AuthManager";
 import { COMMAND_LOGIN, COMMAND_LOGOUT, COMMAND_SET_ACTIVE, COMMAND_SET_INACTIVE, COMMAND_SETUP, COMMAND_SETUP_CATEGORY, COMMAND_SYNC, CONFIG_PROVENA_ACTIVE } from "../constants";
-import { getCodeStateSecion, getStorageRootPath } from "../logging/Util";
+import { getCodeStateSection, getStorageRootPath } from "../logging/Util";
 import { Singletons } from "../Singletons";
 import { loggingHash } from "../util";
 import { StatusBarManager, StatusBarState } from './StatusBarManager';
@@ -103,7 +103,7 @@ export class SetupManager {
 
         disposables.push(vscode.commands.registerCommand('provena.openAuthorshipView', (documentURI: vscode.Uri) => {
             editDisplay.reveal();
-            editDisplay.switchToCodestateSection(getCodeStateSecion(documentURI));
+            editDisplay.switchToCodestateSection(getCodeStateSection(documentURI));
             // if (documentURI) {
             //     console.log(`Opening authorship view for document: ${documentURI.toString()}`);
             //     const document = vscode.workspace.textDocuments.find(doc => doc.uri.toString() === documentURI.toString());

@@ -3,13 +3,13 @@ import { isFileRenameEvent } from "provena/src/progsnap/PS2EventTypes";
 import * as vscode from 'vscode';
 import { MainTableEvent } from "../api";
 import { IEventHandler } from "../logging/EventLogger";
-import { getCodeStateSecion } from "../logging/Util";
+import { getCodeStateSection } from "../logging/Util";
 import { Singletons } from "../Singletons";
 import { EditDisplay } from "./EditDisplay";
 
 function toCSS(codestateSection: string | vscode.Uri): string {
     if (codestateSection instanceof vscode.Uri) {
-        codestateSection = getCodeStateSecion(codestateSection);
+        codestateSection = getCodeStateSection(codestateSection);
     }
     return codestateSection;
 }

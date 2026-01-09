@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { getCodeStateSecion } from '../logging/Util';
+import { getCodeStateSection } from '../logging/Util';
 import { Singletons } from "../Singletons";
 import { isDocumentValidForLogging, isURIOutsideOfWorkspace, showWarningIfUnableToLog } from './DocumentVerifier';
 import { isProvenaActive } from './SetupManager';
@@ -30,7 +30,7 @@ export function createEditorEvents(singletons: Singletons) {
 
 		// Doesn't reveal, just updates the codestate section
 		editDisplay.switchToCodestateSection(
-			getCodeStateSecion(document.uri)
+			getCodeStateSection(document.uri)
 		);
 	}
 
