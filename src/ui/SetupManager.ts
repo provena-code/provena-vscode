@@ -104,9 +104,11 @@ export class SetupManager {
             }
         }));
 
-        disposables.push(vscode.commands.registerCommand('provena.openAuthorshipView', (documentURI: vscode.Uri) => {
+        disposables.push(vscode.commands.registerCommand('provena.openAuthorshipView', (documentURI?: vscode.Uri) => {
             editDisplay.reveal();
-            editDisplay.switchToCodestateSection(getCodeStateSection(documentURI));
+            if (documentURI) {
+                editDisplay.switchToCodestateSection(getCodeStateSection(documentURI));
+            }
             // if (documentURI) {
             //     console.log(`Opening authorship view for document: ${documentURI.toString()}`);
             //     const document = vscode.workspace.textDocuments.find(doc => doc.uri.toString() === documentURI.toString());

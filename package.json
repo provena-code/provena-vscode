@@ -69,7 +69,7 @@
             "completionEvents": [
               "onCommand:provena.openAuthorshipView"
             ],
-            "when": "config.provena.active"
+            "when": "config.provena.active && false"
           }
         ]
       }
@@ -133,7 +133,7 @@
         {
           "command": "provena.openAuthorshipView",
           "group": "navigation@1",
-          "when": "!editorReadonly"
+          "when": "!editorReadonly && false"
         }
       ]
     }
