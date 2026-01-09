@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { isProvenaDisabled } from './SetupManager';
 
 // ~200 KB
 // Theoretical size could be up to ~400 KB due to UTF-8 encoding, but
@@ -22,6 +23,9 @@ export function isURIOutsideOfWorkspace(uri: vscode.Uri): boolean {
 }
 
 export function showWarningIfUnableToLog(document: vscode.TextDocument) {
+    if (isProvenaDisabled()) {
+        return;
+    }
     if (isOutsideOfWorkspace(document)) {
         vscode.window.showWarningMessage(
             `The current file "${document.uri.fsPath}" is not part of this workspace, so Provena will not record your work.`

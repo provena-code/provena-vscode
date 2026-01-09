@@ -1,8 +1,22 @@
 import * as vscode from 'vscode';
-import { COMMAND_SYNC } from "../constants";
+import { COMMAND_SET_ACTIVE, COMMAND_SYNC } from "../constants";
 import { SyncStatus } from "../logging/LogFileService";
+import { shouldLogRemotely } from './SetupManager';
 
 export function showProvenaStatus(status: SyncStatus) {
+
+    if (!shouldLogRemotely()) {
+        vscode.window.showInformationMessage(`Provena is not active in this workspace.`,
+            'Ok',
+            'Activate Provena',
+        ).then(selection => {
+            if (selection === 'Activate Provena') {
+                vscode.commands.executeCommand(COMMAND_SET_ACTIVE);
+            }
+        });
+        return;
+    }
+
     const errorsString = 'Errors: ' + status.errors.join('\n');
 
     if (status.isSynced) {

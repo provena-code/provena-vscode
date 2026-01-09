@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { MainTableEvent } from '../api';
 import { COMMAND_SHOW_SYNC_STATUS, COMMAND_SYNC } from '../constants';
-import { isProvenaActive } from '../ui/SetupManager';
+import { shouldLogRemotely } from '../ui/SetupManager';
 import { StatusBarManager, StatusBarState } from '../ui/StatusBarManager';
 import { showProvenaStatus } from '../ui/SyncErrorDialog';
 import { BatchEventHandler, IBatchEventHandler } from './BatchEventHandler';
@@ -129,7 +129,7 @@ export class LogFileService implements IBatchEventHandler {
     }
 
     async onEvents(events: MainTableEvent[]): Promise<boolean> {
-        if (!isProvenaActive()) {
+        if (!shouldLogRemotely()) {
             return false;
         }
         this.statusBarManager.setState(StatusBarState.SYNCING);
@@ -161,8 +161,13 @@ export class LogFileService implements IBatchEventHandler {
     }
 
     private updateStatusBar(forceShowErrors: boolean = false): void {
-        // Avoid early "failed" sync when we haven't logged anything yet
-        // TODO: This doesn't work the very first time with no historical logs ==> False Failure
+        // If we just finished a sync in the middle of changing to disabled
+        // set appropriately.
+        if (!shouldLogRemotely()) {
+            this.statusBarManager.setState(StatusBarState.DISABLED);
+            return;
+        }
+
         if (this.isSyncing || this.status.thisSession.totalLogs === 0) {
             this.statusBarManager.setState(StatusBarState.SYNCING);
         } else if (this.status.isSynced) {
@@ -230,7 +235,7 @@ export class LogFileService implements IBatchEventHandler {
     }
 
     public async pushUnsyncedLogs(): Promise<boolean> {
-        if (!isProvenaActive()) {
+        if (!shouldLogRemotely()) {
             return false;
         }
         if (this.isSyncing) {

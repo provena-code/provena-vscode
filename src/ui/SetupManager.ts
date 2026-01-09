@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { AuthManager } from "../auth/AuthManager";
-import { COMMAND_LOGIN, COMMAND_LOGOUT, COMMAND_SET_ACTIVE, COMMAND_SET_INACTIVE, COMMAND_SETUP, COMMAND_SETUP_CATEGORY, CONFIG_PROVENA_ACTIVE } from "../constants";
+import { COMMAND_LOGIN, COMMAND_LOGOUT, COMMAND_SET_ACTIVE, COMMAND_SET_INACTIVE, COMMAND_SETUP, COMMAND_SETUP_CATEGORY, COMMAND_SYNC, CONFIG_PROVENA_ACTIVE } from "../constants";
 import { getCodeStateSecion, getStorageRootPath } from "../logging/Util";
 import { Singletons } from "../Singletons";
 import { loggingHash } from "../util";
@@ -53,15 +53,16 @@ export class SetupManager {
         const disposables: vscode.Disposable[] = [];
 
         this.onSetupStatusChange.event(() => {
-            singletons.logger.setActive(!isProvenaDisabled());
+            // console.log(`Setup status changed, updating Provena active status`);
+            singletons.logger.setActive(shouldLogLocally());
             this.showWarningIfNotConfigured();
             if (!this.isProvenaConfigured()) {
                 this.statusBarManager.setState(StatusBarState.NOT_SET_UP);
             } else if (isProvenaDisabled()) {
                 this.statusBarManager.setState(StatusBarState.DISABLED);
-            } else {
-                // Since we won't have synced logs yet
-                this.statusBarManager.setState(StatusBarState.SYNCING);
+            } else if (shouldLogRemotely()) {
+                // If we just changed to be able to sync, do so
+                vscode.commands.executeCommand(COMMAND_SYNC);
             }
         });
 
