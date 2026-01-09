@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { CONFIG_IGNORE_FILE_WARNINGS } from '../constants';
 import { isProvenaDisabled } from './SetupManager';
 
 // ~200 KB
@@ -27,12 +28,38 @@ export function showWarningIfUnableToLog(document: vscode.TextDocument) {
         return;
     }
     if (isOutsideOfWorkspace(document)) {
-        vscode.window.showWarningMessage(
+        showWarningIfNeeded(document,
             `The current file "${document.uri.fsPath}" is not part of this workspace, so Provena will not record your work.`
         );
     } else if (isDocumentTooLargeForLogging(document)) {
-        vscode.window.showWarningMessage(
+        showWarningIfNeeded(document,
             `The current file "${document.uri.fsPath}" is too large for Provena to log (over ${MAX_LOGGABLE_CHARS} characters).`
         );
+    }
+}
+
+function showWarningIfNeeded(document: vscode.TextDocument, warning: string) {
+    const ignoredFiles = vscode.workspace.getConfiguration().get(CONFIG_IGNORE_FILE_WARNINGS);
+    const isIgnored = Array.isArray(ignoredFiles) && ignoredFiles.includes(document.uri.toString());
+    if (isIgnored) {
+        return;
+    }
+    vscode.window.showWarningMessage(
+            warning,
+            'Ok',
+            'Ignore warnings for this file'
+        ).then(selection => {
+            if (selection === 'Ignore warnings for this file') {
+                ignoreWarningsForFile(document);
+            }
+        });
+}
+
+function ignoreWarningsForFile(document: vscode.TextDocument) {
+    const config = vscode.workspace.getConfiguration();
+    const ignoredFiles = config.get(CONFIG_IGNORE_FILE_WARNINGS) as string[] || [];
+    if (!ignoredFiles.includes(document.uri.toString())) {
+        ignoredFiles.push(document.uri.toString());
+        config.update(CONFIG_IGNORE_FILE_WARNINGS, ignoredFiles, vscode.ConfigurationTarget.Workspace);
     }
 }

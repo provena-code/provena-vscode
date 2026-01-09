@@ -25,3 +25,4 @@ export const COMMAND_SYNC = `${name}.sync`;
 export const CONTEXT_IS_LOGGED_IN = `${name}.loggedIn`;
 
 export const CONFIG_PROVENA_ACTIVE = `${name}.active`;
+export const CONFIG_IGNORE_FILE_WARNINGS = `${name}.ignoreFileWarnings`;

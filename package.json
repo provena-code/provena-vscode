@@ -116,6 +116,14 @@
           "type": ["boolean", "null"],
           "default": null,
           "description": "Whether or not Provena is active for this workspace."
+        },
+        "provena.ignoreFileWarnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "A list of file URIs for which Provena warnings should be ignored."
         }
       }
     },
