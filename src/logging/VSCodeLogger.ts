@@ -98,8 +98,8 @@ export class VSCodeLogger {
         });
     }
 
-    public logFileSave(document: vscode.TextDocument) {
-        this.logger.logFileSave(getCodeStateSection(document.uri), document.getText());
+    public logFileSave(document: vscode.TextDocument, fileContents: string) {
+        this.logger.logFileSave(getCodeStateSection(document.uri), fileContents);
         this.checkForCopyLogEvent(document);
     }
 

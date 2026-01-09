@@ -97,11 +97,22 @@ export function createEditorEvents(singletons: Singletons) {
         vscodeLogger.logFileClose(document);
     }));
 
-    disposables.push(vscode.workspace.onDidSaveTextDocument(document => {
+    disposables.push(vscode.workspace.onDidSaveTextDocument(async document => {
 		if (!isDocumentValidForLogging(document)) {
 			return;
 		}
-        vscodeLogger.logFileSave(document);
+
+		try {
+			// Read the document from disk, rather than vscode's in-memory version
+			// to ensure it matches a file upload.
+			const fileContents = await vscode.workspace.fs.readFile(document.uri);
+			const fileContentsString = Buffer.from(fileContents).toString('utf8');
+			vscodeLogger.logFileSave(document, fileContentsString);
+		} catch {
+			console.warn(`Failed to read file from disk for save event: ${document.uri.toString()}`);
+			// If reading from disk fails, fall back to in-memory version
+			vscodeLogger.logFileSave(document, document.getText());
+		}
     }));
 
 	disposables.push(vscode.workspace.onDidRenameFiles(event => {
