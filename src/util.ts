@@ -1,5 +1,5 @@
-import * as vscode from 'vscode';
 import { createHash } from 'crypto';
+import * as vscode from 'vscode';
 
 export function positionToString(position: vscode.Position): string {
     return `(${position.line},${position.character})`;
@@ -13,4 +13,8 @@ export function loggingHash(str: string, max_length: number = 16): string {
     // quick, deterministic hash of string
     const fullHash = createHash('sha256').update(str).digest('hex');
     return fullHash.substring(0, max_length);
+}
+
+export function isWorkspaceOpen(): boolean {
+    return vscode.workspace.workspaceFolders !== undefined && vscode.workspace.workspaceFolders.length > 0;
 }

@@ -3,7 +3,7 @@ import { AuthManager } from "../auth/AuthManager";
 import { COMMAND_LOGIN, COMMAND_LOGOUT, COMMAND_SET_ACTIVE, COMMAND_SET_INACTIVE, COMMAND_SETUP, COMMAND_SETUP_CATEGORY, COMMAND_SYNC, CONFIG_PROVENA_ACTIVE } from "../constants";
 import { getCodeStateSection, getStorageRootPath } from "../logging/Util";
 import { Singletons } from "../Singletons";
-import { loggingHash } from "../util";
+import { isWorkspaceOpen, loggingHash } from "../util";
 import { StatusBarManager, StatusBarState } from './StatusBarManager';
 
 /**
@@ -34,6 +34,7 @@ export class SetupManager {
     lastWarningTime: number | null = null;
     authManager!: AuthManager;
     statusBarManager!: StatusBarManager;
+    isInitialized: boolean = false;
 
     public readonly onSetupStatusChange = new vscode.EventEmitter<void>();
 
@@ -56,7 +57,9 @@ export class SetupManager {
             // console.log(`Setup status changed, updating Provena active status`);
             singletons.logger.setActive(shouldLogLocally());
             this.showWarningIfNotConfigured();
-            if (!this.isProvenaConfigured()) {
+            if (!isWorkspaceOpen()) {
+                this.statusBarManager.setState(StatusBarState.NO_WORKSPACE);
+            } else if (!this.isProvenaConfigured()) {
                 this.statusBarManager.setState(StatusBarState.NOT_SET_UP);
             } else if (isProvenaDisabled()) {
                 this.statusBarManager.setState(StatusBarState.DISABLED);
@@ -128,6 +131,9 @@ export class SetupManager {
             logger.logSessionStart();
             logger.logProjectOpen(loggingHash(getStorageRootPath(context) || ''));
             this.showWalkthroughIfNeeded();
+        }).finally(() => {
+            this.isInitialized = true;
+            this.showWarningIfNotConfigured();
         });
 
         context.subscriptions.push(...disposables);
@@ -144,7 +150,7 @@ export class SetupManager {
     }
 
     showWarningIfNotConfigured() {
-        if (this.isProvenaConfigured()) {
+        if (this.isProvenaConfigured() || !this.isInitialized || !isWorkspaceOpen()) {
             return;
         }
         const now = new Date().getTime();
@@ -164,8 +170,8 @@ export class SetupManager {
         });
     }
 
-    showWalkthroughIfNeeded() {
-        if (this.isProvenaConfigured()) {
+    private showWalkthroughIfNeeded() {
+        if (this.isProvenaConfigured() || !isWorkspaceOpen()) {
             return;
         }
         vscode.commands.executeCommand(COMMAND_SETUP);
