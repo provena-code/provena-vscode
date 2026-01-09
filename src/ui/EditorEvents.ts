@@ -51,7 +51,7 @@ export function createEditorEvents(singletons: Singletons) {
 
 	// ---- Workspace Events ----
 
-	disposables.push(vscode.workspace.onDidChangeTextDocument(async event => {
+	disposables.push(vscode.workspace.onDidChangeTextDocument(event => {
 		setupManager.showWarningIfNotConfigured();
 
         // Still need update the last opened file

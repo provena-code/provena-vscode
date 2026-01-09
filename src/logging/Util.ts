@@ -9,7 +9,6 @@ export function generateID(): string {
 
 
 export function getCodeStateSection(uri: vscode.Uri, originalURIScheme: string = uri.scheme): string {
-    console.log(uri.path);
 
     // TODO: This is a basic patch for notebook cells,
     // but it won't work with the rest of the architecture
