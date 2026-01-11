@@ -1,3 +1,4 @@
 export const envConfig = {
-  apiRoot: process.env.API_ROOT || 'https://127.0.0.1:8000',
+  apiConfigUrl: process.env.API_CONFIG_URL,
+  fallbackAPIRoot: process.env.FALLBACK_API_ROOT || 'https://127.0.0.1:8000',
 };

@@ -1,4 +1,4 @@
-import { EventType, MainTableEvent, OpenAPI } from "../api";
+import { EventType, MainTableEvent } from "../api";
 import { EventLoggerBase } from "./EventLoggerBase";
 import { LogState } from "./LogState";
 import { generateID } from "./Util";
@@ -34,16 +34,6 @@ export class EventLogger extends EventLoggerBase {
             this.flush();
         }
         this.active = active;
-    }
-
-    // TODO: Consider authentication, etc., and better understand this
-    public static configure(baseURL: string) {
-        if (baseURL.endsWith('/')) {
-            baseURL = baseURL.slice(0, -1);
-        }
-        OpenAPI.BASE = baseURL;
-        // OpenAPI.CREDENTIALS = 'include';
-        // OpenAPI.WITH_CREDENTIALS = true;
     }
 
     public registerEventHandler(handler: IEventHandler) {

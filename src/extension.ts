@@ -3,7 +3,6 @@
 import * as vscode from 'vscode';
 import { name, publisher, version } from '../package.json';
 import { AuthManager } from './auth/AuthManager';
-import { envConfig } from './config';
 import { CONTEXT_IS_LOGGED_IN } from './constants';
 import { EditDisplay } from './display/EditDisplay';
 import { EditListService } from './display/EditListService';
@@ -23,9 +22,6 @@ let loggerToClose: EventLogger | undefined = undefined;
 // Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
 	console.log('start!');
-
-	EventLogger.configure(envConfig.apiRoot);
-	console.log('API Root:', envConfig.apiRoot);
 
 	// Might be a good idea to force 0-args constructors
 	const sessionID = generateID();
