@@ -143,7 +143,7 @@
     "compile": "webpack",
     "watch": "webpack --watch --mode=development",
     "package": "webpack --mode production --devtool hidden-source-map",
-    "deploy": "vsce package",
+    "deploy": "vsce package --allow-star-activation",
     "compile-tests": "tsc -p . --outDir out",
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
