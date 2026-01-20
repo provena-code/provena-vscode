@@ -44,12 +44,19 @@ export class BatchEventHandler implements IFlushableEventHandler {
             this.timer = null;
         }
 
+        const eventsToProcess = [...this.eventQueue];
+        const eventCount = eventsToProcess.length;
+
         try {
-            const success = await this.batchEventHandler.onEvents(this.eventQueue);
+            const success = await this.batchEventHandler.onEvents(eventsToProcess);
             if (success) {
                 // Only clear the queue if the flush was successful
-                this.eventQueue = [];
+                // and only remove the events that were processed
+                this.eventQueue.splice(0, eventCount);
             }
+        }
+        catch (error) {
+            console.error("Error flushing events:", error);
         } finally {
             this.isFlushing = false;
         }
