@@ -6,6 +6,7 @@ import { COMMAND_SHOW_SYNC_STATUS, COMMAND_SYNC } from '../constants';
 import { shouldLogRemotely } from '../ui/SetupManager';
 import { StatusBarManager, StatusBarState } from '../ui/StatusBarManager';
 import { showProvenaStatus } from '../ui/SyncErrorDialog';
+import { Profiler } from '../utils/Profiler';
 import { BatchEventHandler, IBatchEventHandler } from './BatchEventHandler';
 import { EventLogger } from './EventLogger';
 import { JSONLLogger } from './JSONLogger';
@@ -213,7 +214,10 @@ export class LogFileService implements IBatchEventHandler {
     }
 
     public async getAllLogs(): Promise<LogFile[]> {
+        const profiler = new Profiler();
+        profiler.start('Get all logs');
         const files = (await fs.readdir(this.rootDir)).filter(isLogFile).sort();
+        profiler.endLast();
         const logFiles: LogFile[] = [];
         for (const file of files) {
             if (file.includes(this.sessionID)) {
@@ -226,11 +230,14 @@ export class LogFileService implements IBatchEventHandler {
             }
             const sessionID = parts[2];
             const filePath = path.join(this.rootDir, file);
+            profiler.start(`Read log file`);
             const content = await fs.readFile(filePath, 'utf-8');
+            profiler.endLastAndStart(`Parse log file`);
             const lines = content.split('\n').filter(line => line.trim() !== '');
+            profiler.endLast();
             logFiles.push({ filePath, lines, sessionID });
-
         }
+        profiler.report();
         return logFiles;
     }
 
