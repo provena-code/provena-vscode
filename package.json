@@ -114,7 +114,10 @@
       "title": "Provena",
       "properties": {
         "provena.active": {
-          "type": ["boolean", "null"],
+          "type": [
+            "boolean",
+            "null"
+          ],
           "default": null,
           "description": "Whether or not Provena is active for this workspace."
         },
@@ -157,6 +160,7 @@
     "@types/d3": "^7.4.3",
     "@types/mocha": "^10.0.9",
     "@types/node": "20.x",
+    "@types/proper-lockfile": "^4.1.4",
     "@types/sinon": "^21.0.0",
     "@types/vscode": "^1.104.0",
     "@typescript-eslint/eslint-plugin": "^8.10.0",
@@ -179,6 +183,7 @@
     "dagre-d3-es": "^7.0.11",
     "devalue": "^5.3.2",
     "diff": "^8.0.2",
+    "proper-lockfile": "^4.1.2",
     "provena": "file:core",
     "zod": "^4.1.12"
   }

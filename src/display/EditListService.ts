@@ -25,16 +25,13 @@ export class EditListService implements IEventHandler {
         this.editDisplay = singletons.editDisplay;
         singletons.logger.registerEventHandler(this);
 
-        singletons.logFileService?.getAllLogs().then((logs) => {
-            logs.forEach((log) => {
-                log.lines.forEach((line) => {
-                    try {
-                        const event = JSON.parse(line);
-                        this.onEvent(event, true);
-                    } catch (e) {
-                        console.error("Failed to parse log line:", line, e);
-                    }
-                });
+        singletons.logFileService?.getCombinedLogsReady().then((events) => {
+            events.forEach((event) => {
+                try {
+                    this.onEvent(event as any, true);
+                } catch (e) {
+                    console.error("Failed to process event:", event, e);
+                }
             });
             this.pendingEvents.forEach((event) => {
                 this.onEvent(event, true);

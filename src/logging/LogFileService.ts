@@ -1,5 +1,6 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import * as lockfile from 'proper-lockfile';
 import * as vscode from 'vscode';
 import { MainTableEvent } from '../api';
 import { COMMAND_SHOW_SYNC_STATUS, COMMAND_SYNC } from '../constants';
@@ -15,6 +16,9 @@ const logsDirName = 'logs';
 const logFileExtension = '.jsonl';
 const logFilePrefix = 'log';
 const cursorFileSuffix = '.cursor';
+
+const logHistoryFile = 'full_log' + logFileExtension;
+const compactCursorFile = 'compacted' + cursorFileSuffix;
 
 function isLogFile(fileName: string): boolean {
     return fileName.startsWith(logFilePrefix) && fileName.endsWith(logFileExtension);
@@ -126,6 +130,12 @@ export class LogFileService implements IBatchEventHandler {
         vscode.commands.registerCommand(COMMAND_SHOW_SYNC_STATUS, () => {
             showProvenaStatus(this.status);
         });
+        // Fire-and-forget compaction to build/refresh compacted history
+        const compactionPromise = this.compactLogsIfNeeded().catch(e => console.log('Compaction failed', e));
+        // When compaction finishes (success or failure), build and cache combined logs
+        compactionPromise.finally(() => {
+            this.combinedLogsPromise = this.getCombinedLogs();
+        });
         this.pushUnsyncedLogs();
     }
 
@@ -213,7 +223,7 @@ export class LogFileService implements IBatchEventHandler {
         await fs.writeFile(cursorPath, lineNumber.toString(), 'utf-8');
     }
 
-    public async getAllLogs(): Promise<LogFile[]> {
+    private async getAllLogs(): Promise<LogFile[]> {
         const profiler = new Profiler();
         profiler.start('Get all logs');
         const files = (await fs.readdir(this.rootDir)).filter(isLogFile).sort();
@@ -239,6 +249,162 @@ export class LogFileService implements IBatchEventHandler {
         }
         profiler.report();
         return logFiles;
+    }
+
+    private getCompactedCursorPath(): string {
+        return path.join(this.rootDir, compactCursorFile);
+    }
+
+    private async getCompactedCursor(): Promise<string | undefined> {
+        try {
+            const p = this.getCompactedCursorPath();
+            const content = await fs.readFile(p, 'utf-8');
+            const trimmed = content.trim();
+            return trimmed === '' ? undefined : trimmed;
+        } catch {
+            return undefined;
+        }
+    }
+
+    private async setCompactedCursor(fileName: string): Promise<void> {
+        const p = this.getCompactedCursorPath();
+        const tmp = p + '.tmp';
+        await fs.writeFile(tmp, fileName, 'utf-8');
+        try {
+            await fs.rename(tmp, p);
+        } catch (e) {
+            try {
+                await fs.rm(p, { force: true });
+            } catch {
+                // ignore
+            }
+            await fs.rename(tmp, p);
+        }
+    }
+
+    // cross-process locking is handled by `proper-lockfile` when needed
+
+    public async compactLogsIfNeeded(): Promise<void> {
+        if (!shouldLogRemotely()) {
+            return;
+        }
+        let release: (() => Promise<void>) | undefined;
+        try {
+            // Try to acquire a lock on the logs directory. If lock can't be acquired, another
+            // process is compacting and we should skip.
+            try {
+                release = await lockfile.lock(this.rootDir, { stale: 5 * 60 * 1000, retries: { retries: 0 } });
+            } catch {
+                return;
+            }
+            const fullPath = path.join(this.rootDir, logHistoryFile);
+            // Ensure compact file exists
+            try {
+                await fs.access(fullPath);
+            } catch {
+                await fs.writeFile(fullPath, '', 'utf-8');
+            }
+
+            let lastCompacted = await this.getCompactedCursor();
+            const logFiles = (await fs.readdir(this.rootDir)).filter(isLogFile).sort();
+
+            for (const fileName of logFiles) {
+                // Skip current session's file(s)
+                if (fileName.includes(this.sessionID)) {
+                    continue;
+                }
+
+                // If we have a cursor and this file is <= cursor, skip it
+                if (lastCompacted && fileName <= lastCompacted) {
+                    continue;
+                }
+
+                const filePath = path.join(this.rootDir, fileName);
+                try {
+                    const content = await fs.readFile(filePath, 'utf-8');
+                    if (!content || content.trim() === '') {
+                        // nothing to append, but update cursor
+                        await this.setCompactedCursor(fileName);
+                        lastCompacted = fileName;
+                        continue;
+                    }
+                    // Ensure ending newline
+                    const toAppend = content.endsWith('\n') ? content : content + '\n';
+                    await fs.appendFile(fullPath, toAppend, 'utf-8');
+                    // Atomically update cursor
+                    await this.setCompactedCursor(fileName);
+                    lastCompacted = fileName;
+                } catch (e) {
+                    console.log(`Error compacting ${filePath}:`, e);
+                    // mark cursor forward so we don't block on this file
+                    try {
+                        await this.setCompactedCursor(fileName);
+                        lastCompacted = fileName;
+                    } catch {
+                        // ignore
+                    }
+                    continue;
+                }
+            }
+        } finally {
+            if (release) {
+                try {
+                    await release();
+                } catch {
+                    // ignore release failures
+                }
+            }
+        }
+    }
+
+    private async getCombinedLogs(): Promise<object[]> {
+        const results: object[] = [];
+        const fullPath = path.join(this.rootDir, logHistoryFile);
+
+        // Read compacted history first
+        try {
+            const exists = await fs.stat(fullPath).then(() => true).catch(() => false);
+            if (exists) {
+                const content = await fs.readFile(fullPath, 'utf-8');
+                const lines = content.split('\n').filter(l => l.trim() !== '');
+                this.parseAndPushLines(results, lines);
+            }
+        } catch (e) {
+            console.log('Error reading compacted history:', e);
+        }
+
+        // Then read uncompacted session files (those after cursor)
+        const cursor = await this.getCompactedCursor();
+        const logFiles = await this.getAllLogs();
+        for (const lf of logFiles) {
+            const fileName = path.basename(lf.filePath);
+            if (cursor && fileName <= cursor) {
+                continue;
+            }
+            this.parseAndPushLines(results, lf.lines);
+        }
+
+        return results;
+    }
+
+    private parseAndPushLines(results: object[], lines: string[]) {
+        for (const line of lines) {
+            try {
+                const obj = JSON.parse(line);
+                results.push(obj);
+            } catch {
+                // ignore malformed
+            }
+        }
+    }
+
+    private combinedLogsPromise?: Promise<object[]>;
+
+    public async getCombinedLogsReady(): Promise<object[]> {
+        if (this.combinedLogsPromise) {
+            return this.combinedLogsPromise;
+        }
+        throw new Error('Must call init() before getting combined logs');
     }
 
     public async pushUnsyncedLogs(): Promise<boolean> {
