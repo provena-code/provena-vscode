@@ -18,7 +18,9 @@ const logFilePrefix = 'log';
 const cursorFileSuffix = '.cursor';
 
 const logHistoryFile = 'full_log' + logFileExtension;
+
 const compactCursorFile = 'compacted' + cursorFileSuffix;
+const syncCursorFile = 'sync' + cursorFileSuffix;
 
 function isLogFile(fileName: string): boolean {
     return fileName.startsWith(logFilePrefix) && fileName.endsWith(logFileExtension);
@@ -251,13 +253,13 @@ export class LogFileService implements IBatchEventHandler {
         return logFiles;
     }
 
-    private getCompactedCursorPath(): string {
-        return path.join(this.rootDir, compactCursorFile);
+    private getFileCursorPath(cursorName: string): string {
+        return path.join(this.rootDir, cursorName);
     }
 
-    private async getCompactedCursor(): Promise<string | undefined> {
+    private async getFileCursor(cursorName: string): Promise<string | undefined> {
         try {
-            const p = this.getCompactedCursorPath();
+            const p = this.getFileCursorPath(cursorName);
             const content = await fs.readFile(p, 'utf-8');
             const trimmed = content.trim();
             return trimmed === '' ? undefined : trimmed;
@@ -266,8 +268,8 @@ export class LogFileService implements IBatchEventHandler {
         }
     }
 
-    private async setCompactedCursor(fileName: string): Promise<void> {
-        const p = this.getCompactedCursorPath();
+    private async setFileCursor(cursorName: string, fileName: string): Promise<void> {
+        const p = this.getFileCursorPath(cursorName);
         const tmp = p + '.tmp';
         await fs.writeFile(tmp, fileName, 'utf-8');
         try {
@@ -302,7 +304,7 @@ export class LogFileService implements IBatchEventHandler {
                 await fs.writeFile(fullPath, '', 'utf-8');
             }
 
-            let lastCompacted = await this.getCompactedCursor();
+            let lastCompacted = await this.getFileCursor(compactCursorFile);
             const logFiles = (await fs.readdir(this.rootDir)).filter(isLogFile).sort();
 
             for (const fileName of logFiles) {
@@ -321,7 +323,7 @@ export class LogFileService implements IBatchEventHandler {
                     const content = await fs.readFile(filePath, 'utf-8');
                     if (!content || content.trim() === '') {
                         // nothing to append, but update cursor
-                        await this.setCompactedCursor(fileName);
+                        await this.setFileCursor(compactCursorFile, fileName);
                         lastCompacted = fileName;
                         continue;
                     }
@@ -329,13 +331,13 @@ export class LogFileService implements IBatchEventHandler {
                     const toAppend = content.endsWith('\n') ? content : content + '\n';
                     await fs.appendFile(fullPath, toAppend, 'utf-8');
                     // Atomically update cursor
-                    await this.setCompactedCursor(fileName);
+                    await this.setFileCursor(compactCursorFile, fileName);
                     lastCompacted = fileName;
                 } catch (e) {
                     console.log(`Error compacting ${filePath}:`, e);
                     // mark cursor forward so we don't block on this file
                     try {
-                        await this.setCompactedCursor(fileName);
+                        await this.setFileCursor(compactCursorFile, fileName);
                         lastCompacted = fileName;
                     } catch {
                         // ignore
@@ -371,7 +373,7 @@ export class LogFileService implements IBatchEventHandler {
         }
 
         // Then read uncompacted session files (those after cursor)
-        const cursor = await this.getCompactedCursor();
+        const cursor = await this.getFileCursor(compactCursorFile);
         const logFiles = await this.getAllLogs();
         for (const lf of logFiles) {
             const fileName = path.basename(lf.filePath);
@@ -415,8 +417,14 @@ export class LogFileService implements IBatchEventHandler {
         this.updateStatusBar();
         const status = this.status.priorSessions = new SessionSyncStatus();
         const logFiles = await this.getAllLogs();
+
+        let lastSynced = await this.getFileCursor(syncCursorFile);
+
         for (const logFile of logFiles) {
             if (logFile.sessionID === this.sessionID) {
+                continue;
+            }
+            if (lastSynced && path.basename(logFile.filePath) <= lastSynced) {
                 continue;
             }
 
@@ -451,6 +459,7 @@ export class LogFileService implements IBatchEventHandler {
             status.syncedLogs += lines.length;
             // Only skip checking the server if we're sure
             // it's up to date on this file
+            await this.setFileCursor(syncCursorFile, path.basename(filePath));
             return true; // Already synced
         }
 
@@ -475,36 +484,39 @@ export class LogFileService implements IBatchEventHandler {
         // console.log(`Syncing log file ${filePath} from line ${lastSyncedLine + 1}`);
 
         const unsyncedLines = lines.slice(lastSyncedLine + 1);
-        if (unsyncedLines.length > 0) {
-            const logObjects = unsyncedLines.map(line => {
-                try {
-                    return JSON.parse(line);
-                } catch {
-                    return null;
-                }
-            }).filter(obj => obj !== null) as object[];
-            const syncResult = await this.syncer.pushLogLines(logObjects);
-
-            status.totalLogs += lines.length;
-            status.syncedLogs += lastSyncedLine + 1;
-            if (syncResult.result === SyncResultType.Success) {
-                await this.setCachedLastSyncedLogLine(filePath, lastSyncedLine + unsyncedLines.length);
-                status.syncedLogs += unsyncedLines.length;
-            }
-            if (syncResult.result === SyncResultType.Unavailable) {
-                this.handleUnavailableServer(status, syncResult);
-                return false;
-            } else if (syncResult.result === SyncResultType.Rejected) {
-                status.errors.push(`Server rejected log for session ${sessionID}: ${syncResult.error}`);
-                console.log(`Server rejected log ${filePath}`, logObjects);
-                // TODO: Decide how to handle Rejected logs
-                // If the server is battle-tested, then sure, we should ignore them
-                // but for now, I'd rather have the chance to fix the server if something's wrong
-                // and try resending them later...
-                // await this.setCachedLastSyncedLogLine(filePath, lastSyncedLine + unsyncedLines.length);
-                return true;
-            }
+        if (unsyncedLines.length == 0) {
+            await this.setFileCursor(syncCursorFile, path.basename(filePath));
+            return true;
         }
+
+        const logObjects = unsyncedLines.map(line => {
+            try {
+                return JSON.parse(line);
+            } catch {
+                return null;
+            }
+        }).filter(obj => obj !== null) as object[];
+        const syncResult = await this.syncer.pushLogLines(logObjects);
+
+        status.totalLogs += lines.length;
+        status.syncedLogs += lastSyncedLine + 1;
+        if (syncResult.result === SyncResultType.Success) {
+            await this.setCachedLastSyncedLogLine(filePath, lastSyncedLine + unsyncedLines.length);
+            status.syncedLogs += unsyncedLines.length;
+            await this.setFileCursor(syncCursorFile, path.basename(filePath));
+        } else if (syncResult.result === SyncResultType.Unavailable) {
+            this.handleUnavailableServer(status, syncResult);
+            return false;
+        } else if (syncResult.result === SyncResultType.Rejected) {
+            status.errors.push(`Server rejected log for session ${sessionID}: ${syncResult.error}`);
+            console.log(`Server rejected log ${filePath}`, logObjects);
+            // TODO: Decide how to handle Rejected logs
+            // If the server is battle-tested, then sure, we should ignore them
+            // but for now, I'd rather have the chance to fix the server if something's wrong
+            // and try resending them later...
+            // await this.setCachedLastSyncedLogLine(filePath, lastSyncedLine + unsyncedLines.length);
+        }
+
         return true;
     }
 
