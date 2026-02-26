@@ -285,9 +285,6 @@ export class LogFileService implements IBatchEventHandler {
     // cross-process locking is handled by `proper-lockfile` when needed
 
     public async compactLogsIfNeeded(): Promise<void> {
-        if (!shouldLogRemotely()) {
-            return;
-        }
         let release: (() => Promise<void>) | undefined;
         try {
             // Try to acquire a lock on the logs directory. If lock can't be acquired, another
