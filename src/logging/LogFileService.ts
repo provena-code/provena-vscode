@@ -97,7 +97,7 @@ export interface ILogSyncer {
 
 export type LogFile = {
     filePath: string,
-    lines: string[],
+    getLines: () => Promise<string[]>,
     sessionID: string
 }
 
@@ -242,12 +242,16 @@ export class LogFileService implements IBatchEventHandler {
             }
             const sessionID = parts[2];
             const filePath = path.join(this.rootDir, file);
-            profiler.start(`Read log file`);
-            const content = await fs.readFile(filePath, 'utf-8');
-            profiler.endLastAndStart(`Parse log file`);
-            const lines = content.split('\n').filter(line => line.trim() !== '');
-            profiler.endLast();
-            logFiles.push({ filePath, lines, sessionID });
+            const getLines = async () => {
+                const p = new Profiler();
+                p.start(`Read log file ${file}`);
+                const content = await fs.readFile(filePath, 'utf-8');
+                const lines = content.split('\n').filter(line => line.trim() !== '');
+                p.endLast();
+                p.report();
+                return lines;
+            }
+            logFiles.push({ filePath, getLines, sessionID });
         }
         profiler.report();
         return logFiles;
@@ -380,7 +384,7 @@ export class LogFileService implements IBatchEventHandler {
             if (cursor && fileName <= cursor) {
                 continue;
             }
-            this.parseAndPushLines(results, lf.lines);
+            this.parseAndPushLines(results, await lf.getLines());
         }
 
         return results;
@@ -413,18 +417,23 @@ export class LogFileService implements IBatchEventHandler {
         if (this.isSyncing) {
             return false;
         }
+        const p = new Profiler();
+        p.start('Get logs to sync');
+
         this.isSyncing = true;
         this.updateStatusBar();
         const status = this.status.priorSessions = new SessionSyncStatus();
         const logFiles = await this.getAllLogs();
-
+        p.endLastAndStart('Read cursor');
         let lastSynced = await this.getFileCursor(syncCursorFile);
 
+        p.endLastAndStart('Sync logs');
         for (const logFile of logFiles) {
             if (logFile.sessionID === this.sessionID) {
                 continue;
             }
             if (lastSynced && path.basename(logFile.filePath) <= lastSynced) {
+                console.log(`Skipping log file ${logFile.filePath} since it's at or before last synced cursor ${lastSynced}`);
                 continue;
             }
 
@@ -442,11 +451,14 @@ export class LogFileService implements IBatchEventHandler {
         }
         this.isSyncing = false;
         this.updateStatusBar();
+        p.endLast();
+        p.report();
         return true;
     }
 
     private async syncFile(logFile: LogFile, status: SessionSyncStatus): Promise<boolean> {
-        const { filePath, lines, sessionID } = logFile;
+        const { filePath, getLines, sessionID } = logFile;
+        const lines = await getLines();
         if (lines.length === 0) {
             return true;
         }
