@@ -428,6 +428,8 @@ export class LogFileService implements IBatchEventHandler {
         let lastSynced = await this.getFileCursor(syncCursorFile);
 
         p.endLastAndStart('Sync logs');
+
+        const syncProfiler = new Profiler();
         for (const logFile of logFiles) {
             if (logFile.sessionID === this.sessionID) {
                 continue;
@@ -438,17 +440,20 @@ export class LogFileService implements IBatchEventHandler {
             }
 
             // Probably should keep synchronous so the logs arrive in their original order
-            const shouldContinue = await this.syncFile(logFile, status)
+            const shouldContinue = await this.syncFile(logFile, status, syncProfiler)
                 // Shouldn't happen, but just to make sure we finish
                 .catch((e) => {
                     status.errors.push(`Error syncing log file ${logFile.filePath}: ${e}`);
                     console.log(`Error syncing log file ${logFile.filePath}:`, e);
                     return true;
                 });
+            syncProfiler.endLast();
             if (!shouldContinue) {
                 break;
             }
         }
+        syncProfiler.endLast();
+        syncProfiler.report();
         this.isSyncing = false;
         this.updateStatusBar();
         p.endLast();
@@ -456,12 +461,15 @@ export class LogFileService implements IBatchEventHandler {
         return true;
     }
 
-    private async syncFile(logFile: LogFile, status: SessionSyncStatus): Promise<boolean> {
+    private async syncFile(logFile: LogFile, status: SessionSyncStatus, profiler: Profiler = new Profiler()): Promise<boolean> {
         const { filePath, getLines, sessionID } = logFile;
+        profiler.endLastAndStart('Get lines');
         const lines = await getLines();
         if (lines.length === 0) {
             return true;
         }
+
+        profiler.endLastAndStart('Check cached cursor');
 
         // 0-based
         let lastSyncedLine = await this.getCachedLastSyncedLogLine(filePath);
@@ -474,6 +482,8 @@ export class LogFileService implements IBatchEventHandler {
             await this.setFileCursor(syncCursorFile, path.basename(filePath));
             return true; // Already synced
         }
+
+        profiler.endLastAndStart('Check server cursor');
 
         // Check the server even if we have a cached value, since
         // it could have changed since we cached it
@@ -490,16 +500,20 @@ export class LogFileService implements IBatchEventHandler {
             }
         }
 
+        profiler.endLastAndStart('Set cached server cursor');
+
         // Otherwise, use and cache it
         lastSyncedLine = serverLastSyncedLine.response;
         await this.setCachedLastSyncedLogLine(filePath, lastSyncedLine);
         // console.log(`Syncing log file ${filePath} from line ${lastSyncedLine + 1}`);
 
         const unsyncedLines = lines.slice(lastSyncedLine + 1);
-        if (unsyncedLines.length == 0) {
+        if (unsyncedLines.length === 0) {
             await this.setFileCursor(syncCursorFile, path.basename(filePath));
             return true;
         }
+
+        profiler.endLastAndStart('Parse unsynced lines');
 
         const logObjects = unsyncedLines.map(line => {
             try {
@@ -508,8 +522,11 @@ export class LogFileService implements IBatchEventHandler {
                 return null;
             }
         }).filter(obj => obj !== null) as object[];
+
+        profiler.endLastAndStart('Push logs to server');
         const syncResult = await this.syncer.pushLogLines(logObjects);
 
+        profiler.endLastAndStart('Handle sync result');
         status.totalLogs += lines.length;
         status.syncedLogs += lastSyncedLine + 1;
         if (syncResult.result === SyncResultType.Success) {
