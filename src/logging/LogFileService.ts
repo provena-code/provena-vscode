@@ -214,6 +214,15 @@ export class LogFileService implements IBatchEventHandler {
         await fs.writeFile(cursorPath, lineNumber.toString(), 'utf-8');
     }
 
+    private parseLogFileName(fileName: string): { timestamp: string, sessionID: string } | null {
+        const baseName = path.basename(fileName, logFileExtension);
+        const parts = baseName.split('_');
+        if (parts.length !== 3) {
+            return null;
+        }
+        return { timestamp: parts[1], sessionID: parts[2] };
+    }
+
     public async getAllLogs(): Promise<LogFile[]> {
         const files = (await fs.readdir(this.rootDir)).filter(isLogFile).sort();
         const logFiles: LogFile[] = [];
@@ -221,12 +230,12 @@ export class LogFileService implements IBatchEventHandler {
             if (file.includes(this.sessionID)) {
                 continue;
             }
-            const parts = file.replace(logFileExtension, '').split('_');
-            if (parts.length < 3) {
+            const parsed = this.parseLogFileName(file);
+            if (!parsed) {
                 console.log(`Skipping malformed log file: ${file}`);
                 continue;
             }
-            const sessionID = parts[2];
+            const sessionID = parsed.sessionID;
             const filePath = path.join(this.rootDir, file);
             const getLines = async () => {
                 const content = await fs.readFile(filePath, 'utf-8');
@@ -247,7 +256,12 @@ export class LogFileService implements IBatchEventHandler {
             const p = this.getFileCursorPath(cursorName);
             const content = await fs.readFile(p, 'utf-8');
             const trimmed = content.trim();
-            return trimmed === '' ? undefined : trimmed;
+            const parsed = this.parseLogFileName(trimmed);
+            if (!parsed) {
+                console.warn(`Malformed cursor file ${cursorName} with content: ${content}`);
+                return undefined;
+            }
+            return trimmed;
         } catch {
             return undefined;
         }
