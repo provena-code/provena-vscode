@@ -21,9 +21,17 @@ export class EditListService implements IEventHandler {
     private isInitialized: boolean = false;
     private pendingEvents: any[] = [];
 
+    public constructor(private readonly loadFromLogs: boolean) {
+    }
+
     public init(singletons: Singletons) {
         this.editDisplay = singletons.editDisplay;
         singletons.logger.registerEventHandler(this);
+
+        if (!this.loadFromLogs) {
+            this.isInitialized = true;
+            return;
+        }
 
         singletons.logFileService?.getAllLogs().then((logs) => {
             logs.forEach((log) => {

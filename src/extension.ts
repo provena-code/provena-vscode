@@ -38,7 +38,15 @@ export function activate(context: vscode.ExtensionContext) {
 	const editDisplay = new EditDisplay(context);
 	const setupManager = new SetupManager();
 	const statusBarManager = new StatusBarManager();
-	const editListService = new EditListService();
+
+	// TODO: I've temporarily disabled loading from logs because
+	// we aren't showing the authorship view, and we don't really
+	// need that hitsorical data to detect desyncs and log the file state
+	// (which is the other reason to keep an active EditList).
+	// Eventually this should be re-enabled, but we need to make it
+	// more performant (e.g. by serializing the EditList and only)
+	// loading it when the file is opened.
+	const editListService = new EditListService(false);
 
 
 	const storageRootPath = getStorageRootPath(context);
