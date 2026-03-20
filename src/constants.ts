@@ -21,6 +21,7 @@ export const COMMAND_SET_ACTIVE = `${name}.setActive`;
 export const COMMAND_SET_INACTIVE = `${name}.setInactive`;
 export const COMMAND_SHOW_SYNC_STATUS = `${name}.showSyncStatus`;
 export const COMMAND_SYNC = `${name}.sync`;
+export const COMMAND_CLEAR_CACHE = `${name}.clearCache`;
 
 export const CONTEXT_IS_LOGGED_IN = `${name}.loggedIn`;
 

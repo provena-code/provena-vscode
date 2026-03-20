@@ -93,8 +93,7 @@ export class EditListService implements IEventHandler {
         return status === DocumentStatus.Synced;
     }
 
-    // TODO: Test!
-    public renameEditList(oldCodestateSection: string, newCodestateSection: string) {
+    private renameEditList(oldCodestateSection: string, newCodestateSection: string) {
         const editList = this.editLists.get(oldCodestateSection);
         if (editList) {
             this.editLists.set(newCodestateSection, editList);

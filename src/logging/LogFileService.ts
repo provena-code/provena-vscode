@@ -2,7 +2,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { MainTableEvent } from '../api';
-import { COMMAND_SHOW_SYNC_STATUS, COMMAND_SYNC } from '../constants';
+import { COMMAND_CLEAR_CACHE, COMMAND_SHOW_SYNC_STATUS, COMMAND_SYNC } from '../constants';
 import { shouldLogRemotely } from '../ui/SetupManager';
 import { StatusBarManager, StatusBarState } from '../ui/StatusBarManager';
 import { showProvenaStatus } from '../ui/SyncErrorDialog';
@@ -127,6 +127,19 @@ export class LogFileService implements IBatchEventHandler {
         vscode.commands.registerCommand(COMMAND_SHOW_SYNC_STATUS, () => {
             showProvenaStatus(this.status);
         });
+        vscode.commands.registerCommand(COMMAND_CLEAR_CACHE, async () => {
+            vscode.window.showInformationMessage(
+                `Are you sure you want to clear the Provena cache?
+                This will delete all unsynced logs from previous sessions,
+                but will not affect the current session. This cannot be undone!`,
+                'Yes, clear cache', 'No'
+            ).then(async (selection) => {
+                if (selection === 'Yes, clear cache') {
+                    await this.clearCache();
+                    vscode.window.showInformationMessage('Provena cache cleared.');
+                }
+            });
+        });
         this.pushUnsyncedLogs();
     }
 
@@ -221,6 +234,20 @@ export class LogFileService implements IBatchEventHandler {
             return null;
         }
         return { timestamp: parts[1], sessionID: parts[2] };
+    }
+
+    public async clearCache(): Promise<void> {
+        const files = (await fs.readdir(this.rootDir)).sort();
+        const promises = [];
+        for (const file of files) {
+            // Never clear the current log file
+            if (file.includes(this.sessionID)) {
+                continue;
+            }
+            // delete
+            promises.push(fs.rm(path.join(this.rootDir, file)));
+        }
+        await Promise.allSettled(promises);
     }
 
     public async getAllLogs(): Promise<LogFile[]> {
