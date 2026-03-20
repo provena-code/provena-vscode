@@ -33,9 +33,10 @@ export class EditListService implements IEventHandler {
             return;
         }
 
-        singletons.logFileService?.getAllLogs().then((logs) => {
-            logs.forEach((log) => {
-                log.lines.forEach((line) => {
+        singletons.logFileService?.getAllLogs().then(async (logs) => {
+            for (const log of logs) {
+                const lines = await log.getLines();
+                lines.forEach((line) => {
                     try {
                         const event = JSON.parse(line);
                         this.onEvent(event, true);
@@ -43,7 +44,7 @@ export class EditListService implements IEventHandler {
                         console.error("Failed to parse log line:", line, e);
                     }
                 });
-            });
+            }
             this.pendingEvents.forEach((event) => {
                 this.onEvent(event, true);
             });
