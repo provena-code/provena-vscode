@@ -23,6 +23,12 @@ export class VSCodeLogger {
             this.documentsCheckedForCopy = [];
             this.lastCopiedText = copiedText;
         }
+        // TODO: Cut events won't register a copy event (and if we don't check)
+        // history, they're treated as external pastes if/when they're pasted.
+        // It's pretty tricky to find cut events, since I believe the clipboard
+        // doesn't always update until after the deletion event is raised, so
+        // there's no easy way to say "this is a cut". I've seen this happen in
+        // the logs but have't been able to reproduce it.
         this.documentsCheckedForCopy.push(document.uri);
         const index = document.getText().indexOf(copiedText);
         if (index === -1) {
