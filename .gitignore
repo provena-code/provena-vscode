@@ -7,3 +7,4 @@ media/bundle.js.map
 *.vsix
 src/secret.ts
 .env.development
+.env.production

@@ -1,11 +1,16 @@
 
-import * as vscode from 'vscode';
+import axios from 'axios';
+import { randomBytes } from 'crypto';
 import * as http from 'http';
 import { URL } from 'url';
+import * as vscode from 'vscode';
 import {
     GOOGLE_PROVIDER_ID,
     OAUTH_REDIRECT_URI
 } from '../../constants';
+import { showCancelledError, showTokenError } from '../../ui';
+import { buildAuthUrl, exchangeCodeForToken, generatePKCE, getUserInfo, refreshAccessToken, revokeToken } from '../../utils/oauth';
+import { GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_SECRET } from '../secret';
 import {
     AuthCancelledError,
     AuthIdentity,
@@ -15,11 +20,6 @@ import {
     StoredAuthData,
     TokenError
 } from '../types';
-import { showCancelledError, showTokenError } from '../../ui';
-import { buildAuthUrl, exchangeCodeForToken, generatePKCE, getUserInfo, refreshAccessToken, revokeToken } from '../../utils/oauth';
-import { randomBytes } from 'crypto';
-import axios from 'axios';
-import { GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_SECRET } from '../secret';
 
 export class GoogleProvider implements IdentityProvider {
     public id = GOOGLE_PROVIDER_ID;

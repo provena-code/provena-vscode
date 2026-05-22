@@ -42,9 +42,6 @@ export class SetupManager {
 
     }
 
-    // TODO: Set provena status when setting up UI
-    // and enable logging after its set up...
-    // and disable it beforehand ://
     init(singletons: Singletons) {
         this.authManager = singletons.authManager;
         this.statusBarManager = singletons.statusBarManager;

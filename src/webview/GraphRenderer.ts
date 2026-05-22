@@ -1,6 +1,6 @@
+import * as d3 from 'd3';
 import * as dagreD3 from 'dagre-d3-es';
 import { EditNode } from 'provena';
-import * as d3 from 'd3';
 
 export class GraphRenderer {
     private readonly rootElement: HTMLElement;
@@ -20,7 +20,6 @@ export class GraphRenderer {
     }
 
     private findNodes(edit: EditNode, nodes: Map<EditNode, number>) {
-        // TODO: Make more efficient
         if (nodes.has(edit)) {
             return;
         }

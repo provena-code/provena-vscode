@@ -23,7 +23,7 @@ export class VSCodeLogger {
             this.documentsCheckedForCopy = [];
             this.lastCopiedText = copiedText;
         }
-        // TODO: Cut events won't register a copy event (and if we don't check)
+        // TODO: Cut events won't register a copy event, and if we don't check
         // history, they're treated as external pastes if/when they're pasted.
         // It's pretty tricky to find cut events, since I believe the clipboard
         // doesn't always update until after the deletion event is raised, so
@@ -50,6 +50,8 @@ export class VSCodeLogger {
         this.checkForCopyLogEvent(document);
     }
 
+    // TODO: Sometimes edits seem to appear out of order with other events,
+    // and I'm guessing it's b/c they're async, waiting to check the clipboard.
     public async logFileEdit(event: vscode.TextDocumentChangeEvent) {
         await this.checkForCopyLogEvent(event.document);
         const copiedText = this.lastCopiedText;

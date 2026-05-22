@@ -149,7 +149,5 @@ export function createEditorEvents(singletons: Singletons) {
     //     }
     // }));
 
-    // TODO: Many more events
-
     context.subscriptions.push(...disposables);
 }

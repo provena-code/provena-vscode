@@ -44,8 +44,7 @@ export class EditDisplay {
         // Seems like messages can be posted before it loads...
         this.isWebviewLoaded = false;
         this.onLoadedCallback = null;
-        // TODO: Need to add a postMessage when the webview is loaded
-        // so we don't try to post messages before it's ready
+
         panel.webview.onDidReceiveMessage(message => {
             console.log('Received message from webview:', message);
             if (message.type === 'webviewLoaded') {

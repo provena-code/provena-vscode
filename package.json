@@ -26,7 +26,7 @@
           {
             "id": "use-provena",
             "title": "Is this workspace for school?",
-            "description": "Provena is a tool for showing your work on programming assignments. Will you use this workspace for CSC 111?\n[Yes, activate Provena](command:provena.setActive)\n[No, disable Provena](command:provena.setInactive)",
+            "description": "Provena is a tool for showing your work on programming assignments. Will you use this workspace for class?\n[Yes, activate Provena](command:provena.setActive)\n[No, disable Provena](command:provena.setInactive)",
             "media": {
               "markdown": "media/about.md"
             },
