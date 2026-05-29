@@ -15,6 +15,7 @@ export class VSCodeLogger {
     }
 
     public async checkForCopyLogEvent(document: vscode.TextDocument) {
+
         const copiedText = await vscode.env.clipboard.readText();
         if (this.lastCopiedText === copiedText && this.documentsCheckedForCopy.includes(document.uri)) {
             return;
@@ -53,6 +54,15 @@ export class VSCodeLogger {
     // TODO: Sometimes edits seem to appear out of order with other events,
     // and I'm guessing it's b/c they're async, waiting to check the clipboard.
     public async logFileEdit(event: vscode.TextDocumentChangeEvent) {
+        // TODO:
+        // Sometimes this sequence can happen out of order, where an paste edit event calls this,
+        // and while it's awating the clipboard, the document's text is updated with the paste,
+        // so that the text is "in" the document, but that's looking "into the future".
+        // This creates a problematic fake CodeStateSection/SourceLocation for the copied text.
+        // I actually don't think that's an async issue, just that the document
+        // text should already be updated to the edit.
+        // So the real solution is to exclude the pasted text from the search for the copied text,
+        // but I don't know if that should be done by the logger or in post processing...
         await this.checkForCopyLogEvent(event.document);
         const copiedText = this.lastCopiedText;
 
