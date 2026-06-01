@@ -38,6 +38,8 @@ export class VSCodeLogger {
         }
 
         // TODO: Test this fix (e.g. by disabling checkForCopyLogEvent except on edits)
+        // TODO: Sometimes a paste comes with autoformatting (e.g. removing indentation)
+        // that can mess this up. One option is to check ranges of text rather than indices...
         // and confirming that the external/internal pastes are well detected.
         if (event) {
             // If this is being called as part of an edit event, that insertion would
