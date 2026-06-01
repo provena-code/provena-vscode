@@ -14,7 +14,7 @@ export class VSCodeLogger {
         this.logger = singletons.logger;
     }
 
-    public async checkForCopyLogEvent(document: vscode.TextDocument) {
+    public async checkForCopyLogEvent(document: vscode.TextDocument, event?: vscode.TextDocumentChangeEvent) {
 
         const copiedText = await vscode.env.clipboard.readText();
         if (this.lastCopiedText === copiedText && this.documentsCheckedForCopy.includes(document.uri)) {
@@ -31,14 +31,36 @@ export class VSCodeLogger {
         // there's no easy way to say "this is a cut". I've seen this happen in
         // the logs but have't been able to reproduce it.
         this.documentsCheckedForCopy.push(document.uri);
-        const index = document.getText().indexOf(copiedText);
+
+        let index = document.getText().indexOf(copiedText);
         if (index === -1) {
             return;
         }
+
+        // TODO: Test this fix (e.g. by disabling checkForCopyLogEvent except on edits)
+        // and confirming that the external/internal pastes are well detected.
+        if (event) {
+            // If this is being called as part of an edit event, that insertion would
+            // already be in the document text, so we should ignore the insertion indices
+            // when trying to find the _source_ of the copied text.
+            const matchingIndices = event.contentChanges
+            .filter(change => change.text === copiedText)
+            .map(change => change.rangeOffset);
+
+            // Search through the document text to find an instance of the
+            // copied text that isn't part of the current edit event.
+            while (matchingIndices.includes(index) && index !== -1) {
+                index = document.getText().indexOf(copiedText, index + 1);
+            }
+
+            // Note: we still want to register the copy event even if we
+            // can't find the source; we just don't want to include a SourceLocation
+        }
+
         this.logger.logFileCopytext(
             copiedText,
             getCodeStateSection(document.uri),
-            index.toString(),
+            index ? index.toString() : undefined,
         );
     }
 
@@ -54,16 +76,7 @@ export class VSCodeLogger {
     // TODO: Sometimes edits seem to appear out of order with other events,
     // and I'm guessing it's b/c they're async, waiting to check the clipboard.
     public async logFileEdit(event: vscode.TextDocumentChangeEvent) {
-        // TODO:
-        // Sometimes this sequence can happen out of order, where an paste edit event calls this,
-        // and while it's awating the clipboard, the document's text is updated with the paste,
-        // so that the text is "in" the document, but that's looking "into the future".
-        // This creates a problematic fake CodeStateSection/SourceLocation for the copied text.
-        // I actually don't think that's an async issue, just that the document
-        // text should already be updated to the edit.
-        // So the real solution is to exclude the pasted text from the search for the copied text,
-        // but I don't know if that should be done by the logger or in post processing...
-        await this.checkForCopyLogEvent(event.document);
+        await this.checkForCopyLogEvent(event.document, event);
         const copiedText = this.lastCopiedText;
 
         const document = event.document;
