@@ -9,6 +9,12 @@ export function createEditorEvents(singletons: Singletons) {
     const { context, vscodeLogger, editDisplay, setupManager, editListService } = singletons;
     const disposables: vscode.Disposable[] = [];
 
+	// TODO: Instead of NOT logging editors that aren't in the workspace, we
+	// should log them to memory (not disk) and if they are later moved or saved as
+	// into the workspace, we should log those events. We had many students who
+	// opened a template file and later saved or dragged it into the workspace.
+	// This will require some architectural changes...
+
 	let lastActiveDocument: vscode.TextDocument | undefined = undefined;
 	function switchActiveEditor(document: vscode.TextDocument, force: boolean = false) {
 
