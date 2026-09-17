@@ -8,15 +8,16 @@ export { OpenAPI } from './core/OpenAPI';
 export type { OpenAPIConfig } from './core/OpenAPI';
 
 export type { AssignmentSubjectsResponseItem } from './models/AssignmentSubjectsResponseItem';
-export { CompileResult } from './models/CompileResult';
+export type { CodeStateSection } from './models/CodeStateSection';
 export { EditType } from './models/EditType';
 export { EventInitiator } from './models/EventInitiator';
 export { EventType } from './models/EventType';
-export { ExecutionResult } from './models/ExecutionResult';
 export type { HTTPValidationError } from './models/HTTPValidationError';
-export { InterventionCategory } from './models/InterventionCategory';
 export type { LogResult } from './models/LogResult';
 export type { MainTableEvent } from './models/MainTableEvent';
+export type { SubmissionInfo } from './models/SubmissionInfo';
+export type { SubmitEvent } from './models/SubmitEvent';
 export type { ValidationError } from './models/ValidationError';
 
+export { AuthService } from './services/AuthService';
 export { DefaultService } from './services/DefaultService';

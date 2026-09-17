@@ -154,7 +154,7 @@
     "lint": "eslint src",
     "test": "vitest",
     "test:ext": "vscode-test",
-    "gen": "npx openapi-typescript-codegen --input http://localhost:8000/openapi.json --output ./src/api --client axios"
+    "gen": "npx openapi-typescript-codegen --input http://127.0.0.1:8001/openapi.json --output ./src/api --client axios"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",

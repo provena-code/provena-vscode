@@ -4,7 +4,7 @@
 /* eslint-disable */
 export type AssignmentSubjectsResponseItem = {
     SubjectID: string;
-    InsertTextLength: number;
-    DeleteTextLength: number;
+    LastSubmissionTime: string;
+    MaxScore: number;
 };
 

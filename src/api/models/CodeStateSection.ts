@@ -2,8 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export enum CompileResult {
-    SUCCESS = 'Success',
-    WARNING = 'Warning',
-    ERROR = 'Error',
-}
+export type CodeStateSection = {
+    CodeStateSection: string;
+    Code: string;
+};
+
