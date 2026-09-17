@@ -1,9 +1,11 @@
 
 import * as vscode from 'vscode';
-import { COMMAND_LOGOUT, GOOGLE_PROVIDER_ID } from '../constants';
+import { OpenAPI } from '../api';
+import { CONFIG_AUTH_METHOD, GOOGLE_PROVIDER_ID, PROVENA_SERVER_PROVIDER_ID } from '../constants';
 import { promptForLogin, showLoginSuccess, showLogoutSuccess, showNetworkError } from '../ui';
 import { GoogleProvider } from './providers/GoogleProvider';
-import { AuthIdentity, IdentityProvider, NetworkError, NoStoredIdentityError, StoredAuthData, TokenError } from './types';
+import { ProvenaServerProvider } from './providers/ProvenaServerProvider';
+import { AuthIdentity, IdentityProvider, NetworkError, NoStoredIdentityError, ServerStoredData, StoredAuthData, TokenError } from './types';
 
 export class AuthManager {
     private providers: Map<string, IdentityProvider> = new Map();
@@ -15,14 +17,40 @@ export class AuthManager {
 
     constructor(private readonly context: vscode.ExtensionContext) {
         this.registerProvider(new GoogleProvider(context));
+        this.registerProvider(new ProvenaServerProvider(context));
 
-        this.onAuthChange(async ({ identity }) => {
+        this.onAuthChange(async ({ providerId, identity }) => {
             this.lastIdentity = identity;
+            await this.syncApiToken(providerId, identity);
         });
+    }
+
+    /** The provider id the user has configured to authenticate with. */
+    public getActiveProviderId(): string {
+        return vscode.workspace.getConfiguration().get(CONFIG_AUTH_METHOD, GOOGLE_PROVIDER_ID);
+    }
+
+    private getActiveProvider(): IdentityProvider {
+        const providerId = this.getActiveProviderId();
+        const provider = this.providers.get(providerId);
+        if (!provider) {
+            throw new Error(`Provider ${providerId} not found`);
+        }
+        return provider;
     }
 
     private registerProvider(provider: IdentityProvider) {
         this.providers.set(provider.id, provider);
+    }
+
+    /** Keeps OpenAPI.TOKEN in sync so logging calls carry the server's bearer token when server auth is active. */
+    private async syncApiToken(providerId: string, identity: AuthIdentity | null): Promise<void> {
+        if (!identity || providerId !== this.getActiveProviderId() || providerId !== PROVENA_SERVER_PROVIDER_ID) {
+            OpenAPI.TOKEN = undefined;
+            return;
+        }
+        const stored = await this.getStoredData(providerId) as ServerStoredData | null;
+        OpenAPI.TOKEN = stored?.token;
     }
 
     public async getStoredData(providerId: string, fireChange: boolean = false): Promise<StoredAuthData | null> {
@@ -36,15 +64,12 @@ export class AuthManager {
     }
 
     public getCachedIdentity(fireChange: boolean = false): Promise<AuthIdentity | null> {
-        return this.getStoredData(GOOGLE_PROVIDER_ID, fireChange);
+        return this.getStoredData(this.getActiveProviderId(), fireChange);
     }
 
-    public async getVerifiedGoogleEmail(): Promise<{ email: string, verified: boolean }> {
-        const providerId = GOOGLE_PROVIDER_ID;
-        const provider = this.providers.get(providerId);
-        if (!provider) {
-            throw new Error(`Provider ${providerId} not found`);
-        }
+    public async getVerifiedEmail(): Promise<{ email: string, verified: boolean }> {
+        const providerId = this.getActiveProviderId();
+        const provider = this.getActiveProvider();
 
         const stored = await this.getStoredData(providerId);
 
@@ -80,20 +105,35 @@ export class AuthManager {
     }
 
     public async ensureLoggedIn(): Promise<{ email: string, verified: boolean }> {
-        const provider = this.providers.get(GOOGLE_PROVIDER_ID)!;
+        const providerId = this.getActiveProviderId();
+        const provider = this.getActiveProvider();
         const identity = await provider.loginInteractive();
         showLoginSuccess(identity.email);
-        this._onAuthChange.fire({ providerId: GOOGLE_PROVIDER_ID, identity });
+        this._onAuthChange.fire({ providerId, identity });
         return identity;
     }
 
     public async logout() {
-        const stored = await this.getStoredData(GOOGLE_PROVIDER_ID);
+        const providerId = this.getActiveProviderId();
+        const stored = await this.getStoredData(providerId);
         if (stored) {
-            const provider = this.providers.get(GOOGLE_PROVIDER_ID)!;
+            const provider = this.getActiveProvider();
             await provider.logout(stored);
-            this._onAuthChange.fire({ providerId: GOOGLE_PROVIDER_ID, identity: null });
+            this._onAuthChange.fire({ providerId, identity: null });
         }
         showLogoutSuccess();
+    }
+
+    /**
+     * Drops the active provider's stored credentials locally without calling
+     * its remote revoke/logout (the token is already dead server-side, e.g.
+     * after a 401 from a logging call) and fires onAuthChange so the UI
+     * treats the user as logged out again.
+     */
+    public async invalidateSession(): Promise<void> {
+        const providerId = this.getActiveProviderId();
+        const key = `auth.${providerId}:payload`;
+        await this.context.secrets.delete(key);
+        this._onAuthChange.fire({ providerId, identity: null });
     }
 }

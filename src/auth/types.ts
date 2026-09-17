@@ -23,6 +23,11 @@ export interface GoogleStoredData extends StoredAuthData {
     id_token?: string;
 }
 
+export interface ServerStoredData extends StoredAuthData {
+    providerId: 'server';
+    token: string;
+}
+
 export interface IdentityProvider {
   id: string; // "google", "manual", etc.
   loginInteractive(): Promise<AuthIdentity>; // prompts user and returns identity (throws on cancel/error)

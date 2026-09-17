@@ -1,14 +1,12 @@
 
 import axios from 'axios';
 import { randomBytes } from 'crypto';
-import * as http from 'http';
-import { URL } from 'url';
 import * as vscode from 'vscode';
 import {
-    GOOGLE_PROVIDER_ID,
-    OAUTH_REDIRECT_URI
+    GOOGLE_PROVIDER_ID
 } from '../../constants';
 import { showCancelledError, showTokenError } from '../../ui';
+import { runLoopbackLogin } from '../../utils/loopback';
 import { buildAuthUrl, exchangeCodeForToken, generatePKCE, getUserInfo, refreshAccessToken, revokeToken } from '../../utils/oauth';
 import { GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_SECRET } from '../secret';
 import {
@@ -46,64 +44,21 @@ export class GoogleProvider implements IdentityProvider {
         const state = randomBytes(16).toString('hex');
         const pkce = generatePKCE();
 
-        const server = http.createServer();
-
-        let serverPort: number = 0;
-        const serverPromise = new Promise<string>((resolve, reject) => {
-            server.listen(0, '127.0.0.1', () => {
-                serverPort = (server.address() as any).port;
-                const redirectUri = `${OAUTH_REDIRECT_URI}:${serverPort}/callback`;
-                try {
-                    const authUrl = buildAuthUrl(this.getClientId(), redirectUri, state, pkce);
-                    vscode.env.openExternal(vscode.Uri.parse(authUrl));
-                } catch (e) {
-                    if (e instanceof Error) {
-                        reject(e);
-                    } else {
-                        reject(new Error(String(e)));
-                    }
-                }
-            });
-
-            const timer = setTimeout(() => {
-                server.close();
-                reject(new AuthCancelledError('Login timed out.'));
-            }, 5 * 60 * 1000); // 5 minutes timeout
-
-            server.on('request', (req, res) => {
-                const url = new URL(req.url!, `http://${req.headers.host}`);
-                const code = url.searchParams.get('code');
-                const receivedState = url.searchParams.get('state');
-
-                if (receivedState !== state) {
-                    res.writeHead(400, { 'Content-Type': 'text/plain' });
-                    res.end('State mismatch. Please try again.');
-                    reject(new TokenError('State mismatch.'));
-                    return;
-                }
-
-                if (code) {
-                    res.writeHead(200, { 'Content-Type': 'text/plain' });
-                    res.end('Authentication successful! You can close this window.');
-                    resolve(code);
-                } else {
-                    res.writeHead(400, { 'Content-Type': 'text/plain' });
-                    res.end('Authentication failed. Please try again.');
-                    reject(new TokenError('No code received from Google.'));
-                }
-                clearTimeout(timer);
-                server.close();
-            });
-
-            server.on('error', (err) => {
-                clearTimeout(timer);
-                reject(err);
-            });
-        });
-
         try {
-            const code = await serverPromise;
-            const redirectUri = `${OAUTH_REDIRECT_URI}:${serverPort}/callback`;
+            const { data: code, redirectUri } = await runLoopbackLogin<string>({
+                buildAuthUrl: (redirectUri) => buildAuthUrl(this.getClientId(), redirectUri, state, pkce),
+                parseCallback: (url) => {
+                    const receivedState = url.searchParams.get('state');
+                    if (receivedState !== state) {
+                        throw new TokenError('State mismatch. Please try again.');
+                    }
+                    const code = url.searchParams.get('code');
+                    if (!code) {
+                        throw new TokenError('No code received from Google.');
+                    }
+                    return code;
+                },
+            });
 
             const tokenData = await exchangeCodeForToken(
                 this.getClientId(),

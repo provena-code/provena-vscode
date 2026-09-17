@@ -24,6 +24,12 @@ function getSyncErrorResult<T>(error: any): SyncResult<T> {
         bodyMessage = JSON.stringify(body);
     } catch { }
 
+    if (status === 401) {
+        return {
+            result: SyncResultType.Unauthorized,
+            error: `Your session has expired. Please sign in again.`
+        };
+    }
     if (status === 422) {
         console.log(`Malformatted log lines`, error);
         return {
