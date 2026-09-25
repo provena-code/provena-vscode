@@ -12,8 +12,5 @@ Once you have installed provena, follow the setup instructions in the walkthroug
 
 Provena can work offiline, but make sure you have internet access and allow Provena to sync at least once before submitting your assignment. Syncing will happen automatically as you work, but you can manually trigger it if you see that Provena is unable to connect in the status bar of VS Code.
 
-## Release Notes
-
-### 0.1.0
-
-Initial release for instructor testing.
+## Development
+To develop this plugin, rather than to use it, please see [DEV-README.md](DEV-README.md).
