@@ -10,7 +10,7 @@ import {
 } from '../../constants';
 import { showCancelledError, showTokenError } from '../../ui';
 import { buildAuthUrl, exchangeCodeForToken, generatePKCE, getUserInfo, refreshAccessToken, revokeToken } from '../../utils/oauth';
-import { GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_SECRET } from '../secret';
+import { envConfig } from '../../config';
 import {
     AuthCancelledError,
     AuthIdentity,
@@ -27,7 +27,7 @@ export class GoogleProvider implements IdentityProvider {
     constructor(private readonly context: vscode.ExtensionContext) { }
 
     private getClientId(): string {
-        return GOOGLE_OAUTH_CLIENT_ID;
+        return envConfig.googleOAuthClientId;
     }
 
     private getClientSecret(): string | undefined {
@@ -35,7 +35,7 @@ export class GoogleProvider implements IdentityProvider {
         // if (forcePKCE) {
         //     return undefined;
         // }
-        return GOOGLE_OAUTH_SECRET;
+        return envConfig.googleOAuthSecret;
     }
 
     private getSecretKey(): string {

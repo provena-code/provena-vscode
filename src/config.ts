@@ -1,5 +1,10 @@
 export const envConfig = {
     apiRoot: process.env.API_ROOT || 'https://127.0.0.1:8000',
+    // Credentials for VS Code client-based Google OAuth only (server-based OAuth
+    // is handled separately). These get compiled into the bundle, so they aren't
+    // truly secret; loading them from .env files just keeps them out of git.
+    googleOAuthClientId: process.env.GOOGLE_OAUTH_CLIENT_ID || '',
+    googleOAuthSecret: process.env.GOOGLE_OAUTH_SECRET || '',
 };
 
 export enum AuthenticationMethod {

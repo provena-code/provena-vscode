@@ -5,6 +5,5 @@ media/bundle.js
 media/bundle.js.map
 .vscode-test/
 *.vsix
-src/secret.ts
 .env.development
 .env.production

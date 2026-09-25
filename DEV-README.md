@@ -38,17 +38,19 @@ When you pull changes that update the submodule, run `git submodule update` agai
 
 ### Environment configuration
 
-The server URL is injected at build time from a `.env.<mode>` file. `webpack.config.js` reads `.env.development` or `.env.production` (depending on the webpack `--mode`) and inlines each variable as `process.env.<KEY>` via `DefinePlugin`. These files are gitignored, so create both from the sample:
+The server URL and Google OAuth credentials are injected at build time from a `.env.<mode>` file. `webpack.config.js` reads `.env.development` or `.env.production` (depending on the webpack `--mode`) and inlines each variable as `process.env.<KEY>` via `DefinePlugin`. These files are gitignored, so create both from the sample:
 
 ```sh
 cp .env.sample .env.development
 cp .env.sample .env.production
 ```
 
-Currently the only variable is `API_ROOT`, the base URL of your provena-server instance:
+The variables are:
 
-- `.env.development`: point at your local server, e.g. `API_ROOT=http://127.0.0.1:8001` (the default in `.env.sample`).
-- `.env.production`: point at your deployed server.
+- `API_ROOT`: the base URL of your provena-server instance.
+  - `.env.development`: point at your local server, e.g. `API_ROOT=http://127.0.0.1:8001` (the default in `.env.sample`).
+  - `.env.production`: point at your deployed server.
+- `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_SECRET`: credentials for **VS Code client-based** Google OAuth only. Server-based OAuth is being built separately and doesn't use these. Because they're compiled into the bundle, they aren't truly secret: anyone with the `.vsix` can extract them. Keeping them in `.env` files just keeps them off GitHub. If they're left blank, Google sign-in won't work.
 
 If no `.env` file is found for the current mode, the extension falls back to `https://127.0.0.1:8000` (see [src/config.ts](src/config.ts)). The resolved API root is logged to the Debug Console on activation (`API Root: ...`), which is a quick way to check which config was picked up.
 
