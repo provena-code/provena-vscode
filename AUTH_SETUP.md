@@ -22,7 +22,9 @@ This document describes how to set up Google OAuth for this extension.
 
 ## Configuring the Extension
 
-1. In ./src/auth/, copy secret.ts.example -> secret.example
-2. Update the constants there with your client's client ID and secret.
+1. Create `.env.development` and `.env.production` from `.env.sample` (see [DEV-README.md](DEV-README.md#environment-configuration)).
+2. Set `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_SECRET` in both files to your client's client ID and secret.
+
+These values are only used for VS Code client-based OAuth. They get compiled into the extension bundle, so anyone with the `.vsix` can extract them; keeping them in `.env` files just keeps them out of source control.
 
 The redirect URI is handled automatically by the extension, so you don't need to configure it in the Google API Console. The extension will start a local server on `http://127.0.0.1` on a random port.

@@ -23,7 +23,8 @@ module.exports = (env, argv) => {
   for (const key in fileEnv) {
     defineEnv[`process.env.${key}`] = JSON.stringify(fileEnv[key]);
   }
-  console.log('defineEnv', defineEnv);
+  // Log only the keys, since some values (e.g. OAuth secrets) shouldn't appear in build output
+  console.log('defineEnv keys', Object.keys(defineEnv));
 
   /** @type WebpackConfig */
   const extensionConfig = {

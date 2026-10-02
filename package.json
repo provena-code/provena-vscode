@@ -2,9 +2,9 @@
   "name": "provena",
   "publisher": "HINTSLabatNCState",
   "displayName": "Provena",
-  "description": "",
+  "description": "A tool for showing your work on programming assignments.",
   "version": "0.1.8",
-  "repository": "https://github.com/thomaswp/Provena-vscode",
+  "repository": "https://github.com/provena-code/provena-vscode",
   "icon": "icon.png",
   "engines": {
     "vscode": "^1.104.0"
