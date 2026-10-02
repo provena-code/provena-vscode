@@ -18,15 +18,20 @@ export class DefaultService {
      * Note: TempCodeState.code_state_id is a temporary ID that will be remapped when logging
      * the events. It is used to map multiple events to the same code state in this request.
      * @param requestBody
+     * @param authorization
      * @returns LogResult Successful Response
      * @throws ApiError
      */
     public static addEvents(
         requestBody: Array<MainTableEvent>,
+        authorization?: (string | null),
     ): CancelablePromise<LogResult> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/events',
+            headers: {
+                'authorization': authorization,
+            },
             body: requestBody,
             mediaType: 'application/json',
             errors: {
@@ -37,16 +42,24 @@ export class DefaultService {
     /**
      * Log Submit
      * Submit an event to the database.
+     *
+     * Expected to be called by the autograder, not the student's own session --
+     * see require_submit_permission.
      * @param requestBody
+     * @param authorization
      * @returns LogResult Successful Response
      * @throws ApiError
      */
     public static submit(
         requestBody: SubmitEvent,
+        authorization?: (string | null),
     ): CancelablePromise<LogResult> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/submit',
+            headers: {
+                'authorization': authorization,
+            },
             body: requestBody,
             mediaType: 'application/json',
             errors: {
@@ -57,15 +70,20 @@ export class DefaultService {
     /**
      * Get Event Count
      * @param requestBody
+     * @param authorization
      * @returns any Successful Response
      * @throws ApiError
      */
     public static getEventCount(
         requestBody: SubmissionInfo,
+        authorization?: (string | null),
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/get_event_count',
+            headers: {
+                'authorization': authorization,
+            },
             body: requestBody,
             mediaType: 'application/json',
             errors: {
@@ -75,29 +93,43 @@ export class DefaultService {
     }
     /**
      * Get Assignments
+     * @param authorization
      * @returns any Successful Response
      * @throws ApiError
      */
-    public static getAssignmentIDs(): CancelablePromise<any> {
+    public static getAssignmentIDs(
+        authorization?: (string | null),
+    ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/read/assignments',
+            headers: {
+                'authorization': authorization,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
         });
     }
     /**
      * Get Subject Stats For Assignment
      * @param assignmentId
+     * @param authorization
      * @returns AssignmentSubjectsResponseItem Successful Response
      * @throws ApiError
      */
     public static getSubjectStatsForAssignment(
         assignmentId: string,
+        authorization?: (string | null),
     ): CancelablePromise<Array<AssignmentSubjectsResponseItem>> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/read/assignments/{assignment_id}/subjects',
             path: {
                 'assignment_id': assignmentId,
+            },
+            headers: {
+                'authorization': authorization,
             },
             errors: {
                 422: `Validation Error`,
@@ -108,12 +140,14 @@ export class DefaultService {
      * Get Code State Sections For Assignment Subject
      * @param assignmentId
      * @param subjectId
+     * @param authorization
      * @returns any Successful Response
      * @throws ApiError
      */
     public static getCodeStateSectionsForAssignmentSubject(
         assignmentId: string,
         subjectId: string,
+        authorization?: (string | null),
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'GET',
@@ -122,6 +156,9 @@ export class DefaultService {
                 'assignment_id': assignmentId,
                 'subject_id': subjectId,
             },
+            headers: {
+                'authorization': authorization,
+            },
             errors: {
                 422: `Validation Error`,
             },
@@ -129,13 +166,22 @@ export class DefaultService {
     }
     /**
      * Update Mapping Table Endpoint
+     * @param authorization
      * @returns any Successful Response
      * @throws ApiError
      */
-    public static updateMappingTable(): CancelablePromise<any> {
+    public static updateMappingTable(
+        authorization?: (string | null),
+    ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/read/update_mapping_table',
+            headers: {
+                'authorization': authorization,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
         });
     }
     /**
@@ -143,6 +189,7 @@ export class DefaultService {
      * @param subjectId SubjectID
      * @param startClientTimestamp Start Client Timestamp
      * @param endClientTimestamp End Client Timestamp
+     * @param authorization
      * @returns any Successful Response
      * @throws ApiError
      */
@@ -150,10 +197,14 @@ export class DefaultService {
         subjectId: string,
         startClientTimestamp: string,
         endClientTimestamp: string,
+        authorization?: (string | null),
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/read/edits_in_range',
+            headers: {
+                'authorization': authorization,
+            },
             query: {
                 'subject_id': subjectId,
                 'start_client_timestamp': startClientTimestamp,
@@ -169,6 +220,7 @@ export class DefaultService {
      * @param subjectId SubjectID
      * @param codestateSection CodeStateSection
      * @param lastCodestateId Last CodeStateID
+     * @param authorization
      * @returns any Successful Response
      * @throws ApiError
      */
@@ -176,10 +228,14 @@ export class DefaultService {
         subjectId: string,
         codestateSection: string,
         lastCodestateId?: string,
+        authorization?: (string | null),
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/read/edits',
+            headers: {
+                'authorization': authorization,
+            },
             query: {
                 'subject_id': subjectId,
                 'codestate_section': codestateSection,
@@ -213,29 +269,43 @@ export class DefaultService {
     }
     /**
      * Get Subjects
+     * @param authorization
      * @returns any Successful Response
      * @throws ApiError
      */
-    public static getSubjectIDs(): CancelablePromise<any> {
+    public static getSubjectIDs(
+        authorization?: (string | null),
+    ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/read/subjects',
+            headers: {
+                'authorization': authorization,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
         });
     }
     /**
      * Get Client Timestamp Range For Subject
      * @param subjectId
+     * @param authorization
      * @returns any Successful Response
      * @throws ApiError
      */
     public static getClientTimestampRangeForSubject(
         subjectId: string,
+        authorization?: (string | null),
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/read/subjects/{subject_id}/time_range',
             path: {
                 'subject_id': subjectId,
+            },
+            headers: {
+                'authorization': authorization,
             },
             errors: {
                 422: `Validation Error`,
@@ -245,17 +315,22 @@ export class DefaultService {
     /**
      * Get Codestates For Subject
      * @param subjectId
+     * @param authorization
      * @returns any Successful Response
      * @throws ApiError
      */
     public static getCodeStateSectionsForSubject(
         subjectId: string,
+        authorization?: (string | null),
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/read/subjects/{subject_id}/codestate_sections',
             path: {
                 'subject_id': subjectId,
+            },
+            headers: {
+                'authorization': authorization,
             },
             errors: {
                 422: `Validation Error`,
