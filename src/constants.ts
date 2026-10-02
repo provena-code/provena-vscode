@@ -8,8 +8,12 @@ export const AUTH_PROVIDER_KEY = 'auth.provider';
 export const GOOGLE_PROVIDER_ID = 'google';
 export const GOOGLE_SECRET_STORAGE_KEY = `auth.${GOOGLE_PROVIDER_ID}:payload`;
 
-// OAuth settings
-export const OAUTH_REDIRECT_URI = 'http://127.0.0.1';
+// Provena-server-auth constants
+export const PROVENA_SERVER_PROVIDER_ID = 'server';
+export const PROVENA_SERVER_SECRET_STORAGE_KEY = `auth.${PROVENA_SERVER_PROVIDER_ID}:payload`;
+
+// Which IdentityProvider is active; value is one of the provider ids above.
+export const CONFIG_AUTH_METHOD = `${name}.auth.method`;
 
 export const COMMAND_SETUP_CATEGORY = `${publisher}.${name}#setup`;
 

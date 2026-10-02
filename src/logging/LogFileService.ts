@@ -24,7 +24,8 @@ function isLogFile(fileName: string): boolean {
 export enum SyncResultType {
     Success = 'success',
     Unavailable = 'unavailable',
-    Rejected = 'rejected'
+    Rejected = 'rejected',
+    Unauthorized = 'unauthorized'
 }
 
 type SuccessSyncResult<T> = {
@@ -33,7 +34,7 @@ type SuccessSyncResult<T> = {
 };
 
 type FailedSyncResult = {
-    result: SyncResultType.Unavailable | SyncResultType.Rejected,
+    result: SyncResultType.Unavailable | SyncResultType.Rejected | SyncResultType.Unauthorized,
     error?: string
     // response?: never
 };
@@ -108,7 +109,8 @@ export class LogFileService implements IBatchEventHandler {
         public readonly sessionID: string,
         public readonly syncer: ILogSyncer,
         private readonly statusBarManager: StatusBarManager,
-        rootDir: string
+        rootDir: string,
+        private readonly onUnauthorized: () => void
     ) {
         this.rootDir = path.join(rootDir, logsDirName);
         fs.mkdir(this.rootDir, { recursive: true });
@@ -150,7 +152,11 @@ export class LogFileService implements IBatchEventHandler {
         this.statusBarManager.setState(StatusBarState.SYNCING);
         const syncResult = await this.syncer.pushLogLines(events);
         const sessionStatus = this.status.thisSession;
-        sessionStatus.serverUnavailable = syncResult.result === SyncResultType.Unavailable;
+        sessionStatus.serverUnavailable = syncResult.result === SyncResultType.Unavailable
+            || syncResult.result === SyncResultType.Unauthorized;
+        if (syncResult.result === SyncResultType.Unauthorized) {
+            this.onUnauthorized();
+        }
         if (syncResult.result === SyncResultType.Success) {
             this.nSyncedLogs += events.length;
             await this.setCachedLastSyncedLogLine(this.localLogger.logPath, this.nSyncedLogs);
@@ -376,8 +382,10 @@ export class LogFileService implements IBatchEventHandler {
         // If the server can't be reached, don't try to sync further
         if (serverLastSyncedLine.result !== SyncResultType.Success) {
             if (serverLastSyncedLine.result === SyncResultType.Unavailable) {
-                // Shouldn't be possible to fail for any other reason
                 this.handleUnavailableServer(status, serverLastSyncedLine);
+                return false;
+            } else if (serverLastSyncedLine.result === SyncResultType.Unauthorized) {
+                this.handleUnauthorized(status, serverLastSyncedLine);
                 return false;
             } else {
                 status.errors.push(`Unknown server error.`);
@@ -414,6 +422,9 @@ export class LogFileService implements IBatchEventHandler {
         } else if (syncResult.result === SyncResultType.Unavailable) {
             this.handleUnavailableServer(status, syncResult);
             return false;
+        } else if (syncResult.result === SyncResultType.Unauthorized) {
+            this.handleUnauthorized(status, syncResult);
+            return false;
         } else if (syncResult.result === SyncResultType.Rejected) {
             status.errors.push(`Server rejected log for session ${sessionID}: ${syncResult.error}`);
             console.log(`Server rejected log ${filePath}`, logObjects);
@@ -430,5 +441,12 @@ export class LogFileService implements IBatchEventHandler {
         status.serverUnavailable = true;
         status.errors.push(`Could not connect to the server: ${syncResult.error}`);
         console.log(`Unable to sync right now; stopping further sync attempts.`);
+    }
+
+    handleUnauthorized(status: SessionSyncStatus, syncResult: FailedSyncResult) {
+        status.serverUnavailable = true;
+        status.errors.push(`Your session expired: ${syncResult.error}`);
+        console.log(`Session unauthorized; stopping further sync attempts until re-login.`);
+        this.onUnauthorized();
     }
 }

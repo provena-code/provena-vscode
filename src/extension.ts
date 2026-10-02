@@ -4,7 +4,7 @@ import * as vscode from 'vscode';
 import { name, publisher, version } from '../package.json';
 import { AuthManager } from './auth/AuthManager';
 import { envConfig } from './config';
-import { CONTEXT_IS_LOGGED_IN } from './constants';
+import { COMMAND_SETUP, CONTEXT_IS_LOGGED_IN } from './constants';
 import { EditDisplay } from './display/EditDisplay';
 import { EditListService } from './display/EditListService';
 import { EventLogger } from './logging/EventLogger';
@@ -56,7 +56,21 @@ export function activate(context: vscode.ExtensionContext) {
 			sessionID,
 			new ServerLogger(),
 			statusBarManager,
-			storageRootPath
+			storageRootPath,
+			() => {
+				if (!authManager.isLoggedIn) {
+					return;
+				}
+				authManager.invalidateSession();
+				vscode.window.showWarningMessage(
+					"Your Provena session expired. Sign in again to keep syncing your work.",
+					"Open Walkthrough"
+				).then(selection => {
+					if (selection === "Open Walkthrough") {
+						vscode.commands.executeCommand(COMMAND_SETUP);
+					}
+				});
+			}
 		);
 		logFileService.init();
 		logFileService.registerWithLogger(logger);

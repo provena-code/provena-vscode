@@ -122,6 +122,16 @@
           "default": null,
           "description": "Whether or not Provena is active for this workspace."
         },
+        "provena.auth.method": {
+          "type": "string",
+          "enum": ["google", "server"],
+          "enumDescriptions": [
+            "Sign in directly with your Google account. The extension handles OAuth itself and never sends a token to the Provena server.",
+            "Sign in through the Provena server, which picks the backend. The extension receives a bearer token and attaches it to logging requests."
+          ],
+          "default": "google",
+          "description": "How Provena authenticates you."
+        },
         "provena.ignoreFileWarnings": {
           "type": "array",
           "items": {
