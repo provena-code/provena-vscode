@@ -19,5 +19,4 @@ export type { SubmissionInfo } from './models/SubmissionInfo';
 export type { SubmitEvent } from './models/SubmitEvent';
 export type { ValidationError } from './models/ValidationError';
 
-export { AuthService } from './services/AuthService';
 export { DefaultService } from './services/DefaultService';
