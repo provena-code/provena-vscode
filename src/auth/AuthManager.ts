@@ -29,8 +29,20 @@ export class AuthManager {
         this.onAuthChange(async ({ providerId, identity }) => {
             this.lastIdentity = identity;
             this.lastIdentityProviderId = providerId;
-            await this.syncApiToken(providerId, identity);
         });
+
+        // Resolved fresh on every request (rather than mutated reactively off
+        // onAuthChange events) so DefaultService calls always carry the
+        // current server-auth token, with no window where a request could
+        // race ahead of an auth-change event and go out unauthenticated.
+        OpenAPI.TOKEN = async (): Promise<string> => {
+            const providerId = this.getActiveProviderId();
+            if (providerId !== PROVENA_SERVER_PROVIDER_ID) {
+                return '';
+            }
+            const stored = await this.getStoredData(providerId) as ServerStoredData | null;
+            return stored?.token ?? '';
+        };
 
         context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(async (e) => {
             if (e.affectsConfiguration(CONFIG_AUTH_METHOD)) {
@@ -76,16 +88,6 @@ export class AuthManager {
 
     private registerProvider(provider: IdentityProvider) {
         this.providers.set(provider.id, provider);
-    }
-
-    /** Keeps OpenAPI.TOKEN in sync so logging calls carry the server's bearer token when server auth is active. */
-    private async syncApiToken(providerId: string, identity: AuthIdentity | null): Promise<void> {
-        if (!identity || providerId !== this.getActiveProviderId() || providerId !== PROVENA_SERVER_PROVIDER_ID) {
-            OpenAPI.TOKEN = undefined;
-            return;
-        }
-        const stored = await this.getStoredData(providerId) as ServerStoredData | null;
-        OpenAPI.TOKEN = stored?.token;
     }
 
     public async getStoredData(providerId: string, fireChange: boolean = false): Promise<StoredAuthData | null> {
