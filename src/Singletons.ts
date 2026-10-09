@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { AuthManager } from './auth/AuthManager';
+import { ConfigService } from './config/ConfigService';
 import { EditDisplay } from './display/EditDisplay';
 import { EditListService } from './display/EditListService';
 import { EventLogger } from './logging/EventLogger';
@@ -10,6 +11,7 @@ import { StatusBarManager } from './ui/StatusBarManager';
 
  type _Singletons = {
     context: vscode.ExtensionContext;
+    configService: ConfigService;
     logger: EventLogger;
     vscodeLogger: VSCodeLogger;
     authManager: AuthManager;

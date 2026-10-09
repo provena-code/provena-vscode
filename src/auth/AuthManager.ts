@@ -1,7 +1,8 @@
 
 import * as vscode from 'vscode';
 import { OpenAPI } from '../api';
-import { CONFIG_AUTH_METHOD, GOOGLE_PROVIDER_ID, PROVENA_SERVER_PROVIDER_ID } from '../constants';
+import { ConfigService, MissingConfigError } from '../config/ConfigService';
+import { PROVENA_SERVER_PROVIDER_ID } from '../constants';
 import { promptForLogin, showLoginSuccess, showLogoutSuccess, showNetworkError } from '../ui';
 import { GoogleProvider } from './providers/GoogleProvider';
 import { ProvenaServerProvider } from './providers/ProvenaServerProvider';
@@ -22,8 +23,11 @@ export class AuthManager {
         return this.lastIdentity !== null && this.lastIdentityProviderId === this.getActiveProviderId();
     }
 
-    constructor(private readonly context: vscode.ExtensionContext) {
-        this.registerProvider(new GoogleProvider(context));
+    constructor(
+        private readonly context: vscode.ExtensionContext,
+        private readonly configService: ConfigService,
+    ) {
+        this.registerProvider(new GoogleProvider(context, configService));
         this.registerProvider(new ProvenaServerProvider(context));
 
         this.onAuthChange(async ({ providerId, identity }) => {
@@ -44,9 +48,14 @@ export class AuthManager {
             return stored?.token ?? '';
         };
 
-        context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(async (e) => {
-            if (e.affectsConfiguration(CONFIG_AUTH_METHOD)) {
+        context.subscriptions.push(configService.onDidChange(async ({ previous, current }) => {
+            if (previous.auth?.method !== current.auth?.method) {
                 await this.handleActiveProviderChanged();
+            } else if (previous.server?.url !== current.server?.url
+                && current.auth?.method === PROVENA_SERVER_PROVIDER_ID) {
+                // A server-auth token was issued by the old server, so it
+                // won't be valid against the new one.
+                await this.invalidateSession();
             }
         }));
     }
@@ -59,6 +68,12 @@ export class AuthManager {
      */
     private async handleActiveProviderChanged(): Promise<void> {
         const activeProviderId = this.getActiveProviderId();
+        if (activeProviderId === null) {
+            // Config is broken (and the student has been warned); don't revoke
+            // anyone's session over what's likely a temporary misconfiguration.
+            await this.getCachedIdentity(true);
+            return;
+        }
         for (const [providerId, provider] of this.providers) {
             if (providerId === activeProviderId) {
                 continue;
@@ -72,13 +87,16 @@ export class AuthManager {
         await this.getCachedIdentity(true);
     }
 
-    /** The provider id the user has configured to authenticate with. */
-    public getActiveProviderId(): string {
-        return vscode.workspace.getConfiguration().get(CONFIG_AUTH_METHOD, GOOGLE_PROVIDER_ID);
+    /** The configured provider id, or null if the classroom config has no valid auth method. */
+    public getActiveProviderId(): string | null {
+        return this.configService.current.auth?.method ?? null;
     }
 
     private getActiveProvider(): IdentityProvider {
         const providerId = this.getActiveProviderId();
+        if (providerId === null) {
+            throw new MissingConfigError();
+        }
         const provider = this.providers.get(providerId);
         if (!provider) {
             throw new Error(`Provider ${providerId} not found`);
@@ -100,13 +118,20 @@ export class AuthManager {
         return parsedData;
     }
 
-    public getCachedIdentity(fireChange: boolean = false): Promise<AuthIdentity | null> {
-        return this.getStoredData(this.getActiveProviderId(), fireChange);
+    public async getCachedIdentity(fireChange: boolean = false): Promise<AuthIdentity | null> {
+        const providerId = this.getActiveProviderId();
+        if (providerId === null) {
+            if (fireChange) {
+                this._onAuthChange.fire({ providerId: '', identity: null });
+            }
+            return null;
+        }
+        return this.getStoredData(providerId, fireChange);
     }
 
     public async getVerifiedEmail(): Promise<{ email: string, verified: boolean }> {
-        const providerId = this.getActiveProviderId();
         const provider = this.getActiveProvider();
+        const providerId = provider.id;
 
         const stored = await this.getStoredData(providerId);
 
@@ -142,8 +167,8 @@ export class AuthManager {
     }
 
     public async ensureLoggedIn(): Promise<{ email: string, verified: boolean }> {
-        const providerId = this.getActiveProviderId();
         const provider = this.getActiveProvider();
+        const providerId = provider.id;
         const identity = await provider.loginInteractive();
         showLoginSuccess(identity.email);
         this._onAuthChange.fire({ providerId, identity });
@@ -152,8 +177,8 @@ export class AuthManager {
 
     public async logout() {
         const providerId = this.getActiveProviderId();
-        const stored = await this.getStoredData(providerId);
-        if (stored) {
+        const stored = providerId !== null ? await this.getStoredData(providerId) : null;
+        if (providerId !== null && stored) {
             const provider = this.getActiveProvider();
             await provider.logout(stored);
             this._onAuthChange.fire({ providerId, identity: null });
@@ -169,6 +194,9 @@ export class AuthManager {
      */
     public async invalidateSession(): Promise<void> {
         const providerId = this.getActiveProviderId();
+        if (providerId === null) {
+            return;
+        }
         const key = `auth.${providerId}:payload`;
         await this.context.secrets.delete(key);
         this._onAuthChange.fire({ providerId, identity: null });

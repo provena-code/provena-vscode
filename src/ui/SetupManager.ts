@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { AuthManager } from "../auth/AuthManager";
+import { ConfigService, MissingConfigError } from "../config/ConfigService";
 import { COMMAND_LOGIN, COMMAND_LOGOUT, COMMAND_SET_ACTIVE, COMMAND_SET_INACTIVE, COMMAND_SETUP, COMMAND_SETUP_CATEGORY, COMMAND_SYNC, CONFIG_PROVENA_ACTIVE } from "../constants";
 import { getCodeStateSection, getStorageRootPath } from "../logging/Util";
 import { Singletons } from "../Singletons";
@@ -34,6 +35,7 @@ export class SetupManager {
     lastWarningTime: number | null = null;
     authManager!: AuthManager;
     statusBarManager!: StatusBarManager;
+    configService!: ConfigService;
     isInitialized: boolean = false;
 
     public readonly onSetupStatusChange = new vscode.EventEmitter<void>();
@@ -45,6 +47,7 @@ export class SetupManager {
     init(singletons: Singletons) {
         this.authManager = singletons.authManager;
         this.statusBarManager = singletons.statusBarManager;
+        this.configService = singletons.configService;
 
         const { context, editDisplay, authManager, logger } = singletons;
 
@@ -53,6 +56,7 @@ export class SetupManager {
         this.onSetupStatusChange.event(() => {
             // console.log(`Setup status changed, updating Provena active status`);
             singletons.logger.setActive(shouldLogLocally());
+            this.showConfigWarningIfNeeded();
             this.showWarningIfNotConfigured();
             if (!isWorkspaceOpen()) {
                 this.statusBarManager.setState(StatusBarState.NO_WORKSPACE);
@@ -78,7 +82,15 @@ export class SetupManager {
         }));
 
         disposables.push(vscode.commands.registerCommand(COMMAND_LOGIN, async () => {
-            await authManager.ensureLoggedIn();
+            try {
+                await authManager.ensureLoggedIn();
+            } catch (err) {
+                if (err instanceof MissingConfigError) {
+                    this.configService.showWarningIfMisconfigured(true);
+                    return;
+                }
+                throw err;
+            }
         }));
 
         disposables.push(vscode.commands.registerCommand(COMMAND_LOGOUT, async () => {
@@ -99,6 +111,10 @@ export class SetupManager {
             if (event.affectsConfiguration(CONFIG_PROVENA_ACTIVE)) {
                 this.onSetupStatusChange.fire();
             }
+        }));
+
+        disposables.push(this.configService.onDidChange(() => {
+            this.showConfigWarningIfNeeded();
         }));
 
         disposables.push(vscode.commands.registerCommand('provena.openAuthorshipView', (documentURI?: vscode.Uri) => {
@@ -132,6 +148,7 @@ export class SetupManager {
             this.showWalkthroughIfNeeded();
         }).finally(() => {
             this.isInitialized = true;
+            this.showConfigWarningIfNeeded();
             this.showWarningIfNotConfigured();
         });
 
@@ -146,6 +163,17 @@ export class SetupManager {
             return true;
         }
         return provenaActive !== null && isLoggedIn;
+    }
+
+    /**
+     * Only warn about a missing/invalid classroom config if the student has
+     * said this is a school workspace; otherwise it's not their concern.
+     */
+    showConfigWarningIfNeeded() {
+        if (!this.isInitialized || !isProvenaActive()) {
+            return;
+        }
+        this.configService.showWarningIfMisconfigured();
     }
 
     showWarningIfNotConfigured() {

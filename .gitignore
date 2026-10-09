@@ -5,5 +5,7 @@ media/bundle.js
 media/bundle.js.map
 .vscode-test/
 *.vsix
-.env.development
-.env.production
+provena.config.development.json
+provena.config.production.json
+# Legacy build config (replaced by provena.config.<mode>.json)
+.env*

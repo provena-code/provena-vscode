@@ -1,0 +1,7 @@
+{
+    "provena.server.url": "http://127.0.0.1:8001",
+    "provena.auth.method": "google",
+    "provena.auth.google.clientId": "",
+    "provena.auth.google.clientSecret": "",
+    "provena.overridable": true
+}
