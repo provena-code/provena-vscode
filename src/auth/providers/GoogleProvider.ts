@@ -8,7 +8,7 @@ import {
 import { showCancelledError, showTokenError } from '../../ui';
 import { runLoopbackLogin } from '../../utils/loopback';
 import { buildAuthUrl, exchangeCodeForToken, generatePKCE, getUserInfo, refreshAccessToken, revokeToken } from '../../utils/oauth';
-import { envConfig } from '../../config';
+import { ConfigService, MissingConfigError } from '../../config/ConfigService';
 import {
     AuthCancelledError,
     AuthIdentity,
@@ -22,18 +22,25 @@ import {
 export class GoogleProvider implements IdentityProvider {
     public id = GOOGLE_PROVIDER_ID;
 
-    constructor(private readonly context: vscode.ExtensionContext) { }
+    constructor(
+        private readonly context: vscode.ExtensionContext,
+        private readonly configService: ConfigService,
+    ) { }
+
+    private getGoogleConfig() {
+        const auth = this.configService.current.auth;
+        if (auth?.method !== GOOGLE_PROVIDER_ID) {
+            throw new MissingConfigError('Google sign-in is not configured.');
+        }
+        return auth.google;
+    }
 
     private getClientId(): string {
-        return envConfig.googleOAuthClientId;
+        return this.getGoogleConfig().clientId;
     }
 
     private getClientSecret(): string | undefined {
-        // const forcePKCE = vscode.workspace.getConfiguration().get<boolean>(CONFIG_KEY_FORCE_PKCE, false);
-        // if (forcePKCE) {
-        //     return undefined;
-        // }
-        return envConfig.googleOAuthSecret;
+        return this.getGoogleConfig().clientSecret;
     }
 
     private getSecretKey(): string {

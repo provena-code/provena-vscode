@@ -3,7 +3,7 @@
 import * as vscode from 'vscode';
 import { name, publisher, version } from '../package.json';
 import { AuthManager } from './auth/AuthManager';
-import { envConfig } from './config';
+import { ConfigService } from './config/ConfigService';
 import { COMMAND_SETUP, CONTEXT_IS_LOGGED_IN } from './constants';
 import { EditDisplay } from './display/EditDisplay';
 import { EditListService } from './display/EditListService';
@@ -24,8 +24,13 @@ let loggerToClose: EventLogger | undefined = undefined;
 export function activate(context: vscode.ExtensionContext) {
 	console.log('start!');
 
-	EventLogger.configure(envConfig.apiRoot);
-	console.log('API Root:', envConfig.apiRoot);
+	const configService = new ConfigService(context);
+	// With no valid server URL, sync requests fail like an unreachable server;
+	// SetupManager warns the student to contact their instructor.
+	EventLogger.configure(configService.current.server?.url ?? '');
+	configService.onDidChange(({ current }) => {
+		EventLogger.configure(current.server?.url ?? '');
+	});
 
 	// Might be a good idea to force 0-args constructors
 	const sessionID = generateID();
@@ -34,7 +39,7 @@ export function activate(context: vscode.ExtensionContext) {
 	logger.setActive(!isProvenaDisabled());
 
 	const vscodeLogger = new VSCodeLogger();
-	const authManager = new AuthManager(context);
+	const authManager = new AuthManager(context, configService);
 	const editDisplay = new EditDisplay(context);
 	const setupManager = new SetupManager();
 	const statusBarManager = new StatusBarManager();
@@ -80,6 +85,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	const singletons: Singletons = {
 		context,
+		configService,
 		logger,
 		authManager,
 		editDisplay,

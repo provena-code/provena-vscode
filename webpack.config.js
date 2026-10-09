@@ -5,7 +5,6 @@
 const path = require('path');
 const webpack = require('webpack');
 const fs = require('fs');
-const dotenv = require('dotenv');
 
 //@ts-check
 /** @typedef {import('webpack').Configuration} WebpackConfig **/
@@ -13,18 +12,21 @@ const dotenv = require('dotenv');
 module.exports = (env, argv) => {
   const mode = argv?.mode || 'production';
   console.log('mode', mode);
-  const envPath = path.resolve(__dirname, `.env.${mode}`);
 
-  // load key-value pairs from file
-  const fileEnv = fs.existsSync(envPath) ? dotenv.parse(fs.readFileSync(envPath)) : {};
-
-  // transform to DefinePlugin format
-  const defineEnv = {};
-  for (const key in fileEnv) {
-    defineEnv[`process.env.${key}`] = JSON.stringify(fileEnv[key]);
+  // Baked-in classroom config defaults (see src/config/classroomConfig.ts).
+  // The file is optional: without it, the build has no defaults and must be
+  // configured via workspace settings.
+  const bakedConfigPath = path.resolve(__dirname, `provena.config.${mode}.json`);
+  let bakedConfig = {};
+  if (fs.existsSync(bakedConfigPath)) {
+    try {
+      bakedConfig = JSON.parse(fs.readFileSync(bakedConfigPath, 'utf8'));
+    } catch (e) {
+      throw new Error(`Failed to parse ${bakedConfigPath}: ${e}`);
+    }
   }
   // Log only the keys, since some values (e.g. OAuth secrets) shouldn't appear in build output
-  console.log('defineEnv keys', Object.keys(defineEnv));
+  console.log(`baked config (${path.basename(bakedConfigPath)}) keys`, Object.keys(bakedConfig));
 
   /** @type WebpackConfig */
   const extensionConfig = {
@@ -64,7 +66,9 @@ module.exports = (env, argv) => {
       ]
     },
     plugins: [
-      new webpack.DefinePlugin(defineEnv)
+      new webpack.DefinePlugin({
+        __PROVENA_BAKED_CONFIG__: JSON.stringify(bakedConfig),
+      })
     ],
     devtool: 'nosources-source-map',
     infrastructureLogging: {

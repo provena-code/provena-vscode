@@ -4,7 +4,7 @@ import * as vscode from 'vscode';
 
 export async function promptForLogin(): Promise<boolean> {
     const result = await vscode.window.showInformationMessage(
-        "To associate logs with your account, sign in with Google — proceed?",
+        "To associate logs with your account, sign in — proceed?",
         "Sign in", "Cancel"
     );
     return result === "Sign in";
@@ -22,7 +22,7 @@ export async function showNetworkError(onRetry?: () => void): Promise<void> {
 
 export async function showTokenError(): Promise<void> {
     await vscode.window.showErrorMessage(
-        "Sign-in failed: Google returned an error. Try signing in again or check your network."
+        "Sign-in failed. Try signing in again or check your network."
     );
 }
 

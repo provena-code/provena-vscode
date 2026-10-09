@@ -50,7 +50,7 @@
           {
             "id": "login-required",
             "title": "Sign In",
-            "description": "You must be signed in through your Google account to show your work with Provena.\n[Sign In](command:provena.login)",
+            "description": "You must be signed in to show your work with Provena.\n[Sign In](command:provena.login)",
             "media": {
               "markdown": "media/about.md"
             },
@@ -81,7 +81,7 @@
       },
       {
         "command": "provena.login",
-        "title": "Sign into Provena with Google"
+        "title": "Sign into Provena"
       },
       {
         "command": "provena.logout",
@@ -122,15 +122,30 @@
           "default": null,
           "description": "Whether or not Provena is active for this workspace."
         },
+        "provena.server.url": {
+          "type": "string",
+          "scope": "window",
+          "markdownDescription": "**Set by your instructor.** The URL of the Provena server that logs are synced to. Overrides the extension's built-in default, if it has one."
+        },
         "provena.auth.method": {
           "type": "string",
           "enum": ["google", "server"],
           "enumDescriptions": [
-            "Sign in directly with your Google account. The extension handles OAuth itself and never sends a token to the Provena server.",
+            "Sign in directly with a Google account. The extension handles OAuth itself and never sends a token to the Provena server. Requires `provena.auth.google.clientId` and `provena.auth.google.clientSecret`.",
             "Sign in through the Provena server, which picks the backend. The extension receives a bearer token and attaches it to logging requests."
           ],
-          "default": "google",
-          "description": "How Provena authenticates you."
+          "scope": "window",
+          "markdownDescription": "**Set by your instructor.** How students sign in to Provena. Overrides the extension's built-in default, if it has one."
+        },
+        "provena.auth.google.clientId": {
+          "type": "string",
+          "scope": "window",
+          "markdownDescription": "**Set by your instructor.** OAuth client ID of a Google \"Desktop app\" client. Only used when `provena.auth.method` is `google`."
+        },
+        "provena.auth.google.clientSecret": {
+          "type": "string",
+          "scope": "window",
+          "markdownDescription": "**Set by your instructor.** OAuth client secret of a Google \"Desktop app\" client. Only used when `provena.auth.method` is `google`. Google doesn't treat Desktop client secrets as confidential."
         },
         "provena.ignoreFileWarnings": {
           "type": "array",

@@ -36,30 +36,36 @@ npm install
 
 When you pull changes that update the submodule, run `git submodule update` again to keep `core/` in sync.
 
-### Environment configuration
+### Classroom configuration
 
-The server URL and Google OAuth credentials are injected at build time from a `.env.<mode>` file. `webpack.config.js` reads `.env.development` or `.env.production` (depending on the webpack `--mode`) and inlines each variable as `process.env.<KEY>` via `DefinePlugin`. These files are gitignored, so create both from the sample:
+The server URL and auth settings ("classroom config") can come from two places, which use the same keys:
 
-```sh
-cp .env.sample .env.development
-cp .env.sample .env.production
-```
+1. **Baked-in defaults**, from `provena.config.<mode>.json` in the repo root. `webpack.config.js` reads `provena.config.development.json` or `provena.config.production.json` (depending on the webpack `--mode`) and compiles it into the bundle. This is how you build a school-specific extension that students don't need to configure. These files are gitignored, so create them from the sample:
 
-The variables are:
+   ```sh
+   cp provena.config.sample.json provena.config.development.json
+   cp provena.config.sample.json provena.config.production.json
+   ```
 
-- `API_ROOT`: the base URL of your provena-server instance.
-  - `.env.development`: point at your local server, e.g. `API_ROOT=http://127.0.0.1:8001` (the default in `.env.sample`).
-  - `.env.production`: point at your deployed server.
-- `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_SECRET`: credentials for **VS Code client-based** Google OAuth only. Server-based OAuth is being built separately and doesn't use these. Because they're compiled into the bundle, they aren't truly secret: anyone with the `.vsix` can extract them. Keeping them in `.env` files just keeps them off GitHub. If they're left blank, Google sign-in won't work.
+   The file is optional. Without it, the build has no defaults, which is what you want for a generic marketplace build.
 
-If no `.env` file is found for the current mode, the extension falls back to `https://127.0.0.1:8000` (see [src/config.ts](src/config.ts)). The resolved API root is logged to the Debug Console on activation (`API Root: ...`), which is a quick way to check which config was picked up.
+2. **Workspace (or user) settings**, in `.vscode/settings.json`. These override the baked defaults. An instructor can configure a no-defaults build this way by handing out a workspace template.
+
+The keys are:
+
+- `provena.server.url`: the base URL of your provena-server instance, e.g. `http://127.0.0.1:8001` for local development.
+- `provena.auth.method`: `"google"` (the extension does Google OAuth itself) or `"server"` (the Provena server handles sign-in).
+- `provena.auth.google.clientId` and `provena.auth.google.clientSecret`: required only when the method is `google` (see [AUTH_SETUP.md](AUTH_SETUP.md)). Because they're compiled into the bundle, they aren't truly secret: anyone with the `.vsix` can extract them. Keeping them out of git just keeps them off GitHub.
+- `provena.overridable` (baked file only): set it to `false` to ignore workspace and user overrides. Defaults to `true`.
+
+Values are validated with zod ([src/config/classroomConfig.ts](src/config/classroomConfig.ts)). Unused keys are fine, such as Google credentials when using server auth. If a workspace override is invalid, Provena falls back to the baked default for that section. If a required value is missing or invalid, students with Provena active see one warning that names the settings and asks them to tell their instructor. The resolved config and any problems are logged to the Debug Console on activation (`Provena classroom config: ...`).
 
 Note which scripts use which mode:
 - `npm run watch` (used by F5 / the default build task): **development**
 - `npm run package` / `npm run deploy`: **production**
 - `npm run compile`: no `--mode` is passed, so it defaults to **production**
 
-Other course-level settings (whether to sync to the server, authentication mode) live in `provenaConfig` in [src/config.ts](src/config.ts).
+`webpack --watch` only reads the config file when it starts, so restart it after editing the file.
 
 ### Running and debugging
 

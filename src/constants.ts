@@ -12,8 +12,16 @@ export const GOOGLE_SECRET_STORAGE_KEY = `auth.${GOOGLE_PROVIDER_ID}:payload`;
 export const PROVENA_SERVER_PROVIDER_ID = 'server';
 export const PROVENA_SERVER_SECRET_STORAGE_KEY = `auth.${PROVENA_SERVER_PROVIDER_ID}:payload`;
 
+// Classroom settings (see src/config/classroomConfig.ts). Defaults can be baked
+// into the build; workspace/user settings override them.
+export const CONFIG_SERVER_URL = `${name}.server.url`;
 // Which IdentityProvider is active; value is one of the provider ids above.
 export const CONFIG_AUTH_METHOD = `${name}.auth.method`;
+export const CONFIG_GOOGLE_CLIENT_ID = `${name}.auth.google.clientId`;
+export const CONFIG_GOOGLE_CLIENT_SECRET = `${name}.auth.google.clientSecret`;
+// Baked config only (never read from settings): whether settings may override
+// the baked classroom values. Defaults to true.
+export const CONFIG_OVERRIDABLE = `${name}.overridable`;
 
 export const COMMAND_SETUP_CATEGORY = `${publisher}.${name}#setup`;
 
